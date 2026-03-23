@@ -1,5 +1,16 @@
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 body {
-  font-family: "Roboto Mono", monospace;
+  font-family: "system-ui", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%);
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* Monospace font for CW display */
+.mono {
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
 }
 
 @keyframes decode-scroll-left {
@@ -10,4 +21,24 @@ body {
     /* 32 new STFT frames per 2048-sample chunk / 597 total frames ≈ 5.36% */
     transform: translateX(-5.36%);
   }
+}
+
+/* Custom scrollbar for fresh look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0fdf4;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #10b981;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #059669;
 }

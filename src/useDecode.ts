@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, type MutableRefObject } from "react";
 import { loadModel, runInference } from "./utils/inference";
 import { useAudioProcessing } from "./hooks/useAudioProcessing";
+import { defaultBayesianDecoder } from "./core/bayesianDecoder";
+import { SAMPLE_RATE } from "./const";
 import type { TextSegment } from "./utils/textDecoder";
 
 const waitForNextAudioChunk = (
@@ -20,14 +22,25 @@ const waitForNextAudioChunk = (
     pollForAudio();
   });
 
+type DecoderMode = "DL" | "BAYESIAN";
+
 type UseDecodeParams = {
   filterFreq: number | null;
   filterWidth: number;
   gain: number;
   stream: MediaStream | null;
   language: "EN" | "EN/JA";
+  decoderMode: DecoderMode;
   enabled?: boolean;
 };
+
+/**
+ * Convert Bayesian decoder result to TextSegment format
+ */
+function bayesianToTextSegment(text: string): TextSegment[] {
+  if (!text) return [];
+  return [{ text, isAbbreviation: false }];
+}
 
 export const useDecode = ({
   filterFreq,
@@ -35,6 +48,7 @@ export const useDecode = ({
   gain,
   stream,
   language,
+  decoderMode,
   enabled = true,
 }: UseDecodeParams) => {
   const [loaded, setLoaded] = useState(false);
@@ -45,6 +59,7 @@ export const useDecode = ({
 
   const filterParamsRef = useRef({ filterFreq, filterWidth });
   const audioBufferRef = useAudioProcessing(stream, gain);
+  const bayesianDecoderRef = useRef(defaultBayesianDecoder);
 
   useEffect(() => {
     (async () => {
@@ -65,6 +80,11 @@ export const useDecode = ({
   useEffect(() => {
     filterParamsRef.current = { filterFreq, filterWidth };
   }, [filterFreq, filterWidth]);
+
+  // Reset Bayesian decoder when stream changes
+  useEffect(() => {
+    bayesianDecoderRef.current.reset();
+  }, [stream]);
 
   useEffect(() => {
     if (!stream || !loaded || !enabled) {
@@ -92,28 +112,41 @@ export const useDecode = ({
         lastAudioVersion = audioVersion;
         const { filterFreq, filterWidth } = filterParamsRef.current;
 
-        const segmentsEn = await runInference(
-          audioBufferRef.current.samples,
-          filterFreq,
-          filterWidth,
-          "en"
-        );
-        if (cancelled) {
-          return;
-        }
-        setCurrentSegments(segmentsEn);
-
-        if (language === "EN/JA" && loadedJa) {
-          const segmentsJa = await runInference(
+        if (decoderMode === "BAYESIAN") {
+          // Use Bayesian decoder
+          const result = bayesianDecoderRef.current.processAudio(
             audioBufferRef.current.samples,
-            filterFreq,
-            filterWidth,
-            "ja"
+            SAMPLE_RATE
           );
           if (cancelled) {
             return;
           }
-          setCurrentSegmentsJa(segmentsJa);
+          setCurrentSegments(bayesianToTextSegment(result.text));
+        } else {
+          // Use Deep Learning decoder
+          const segmentsEn = await runInference(
+            audioBufferRef.current.samples,
+            filterFreq,
+            filterWidth,
+            "en"
+          );
+          if (cancelled) {
+            return;
+          }
+          setCurrentSegments(segmentsEn);
+
+          if (language === "EN/JA" && loadedJa) {
+            const segmentsJa = await runInference(
+              audioBufferRef.current.samples,
+              filterFreq,
+              filterWidth,
+              "ja"
+            );
+            if (cancelled) {
+              return;
+            }
+            setCurrentSegmentsJa(segmentsJa);
+          }
         }
       }
     };
@@ -125,7 +158,7 @@ export const useDecode = ({
       cancelled = true;
       setIsDecoding(false);
     };
-  }, [stream, loaded, loadedJa, language, enabled, audioBufferRef]);
+  }, [stream, loaded, loadedJa, language, decoderMode, enabled, audioBufferRef]);
 
   return { loaded, loadedJa, currentSegments, currentSegmentsJa, isDecoding };
 };

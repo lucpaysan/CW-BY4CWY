@@ -218,33 +218,43 @@ export class MorseEncoder {
       return new Float32Array(0);
     }
 
+    // Use 48kHz for high quality
+    const sampleRate = 48000;
+
     // Calculate total duration
     const totalDuration = symbols.reduce((sum, s) => sum + s.duration, 0);
-    const totalSamples = Math.ceil(totalDuration * this.config.sampleRate);
+    const totalSamples = Math.ceil(totalDuration * sampleRate);
 
     const audio = new Float32Array(totalSamples);
     let sampleIndex = 0;
 
     // Pre-compute angular frequency for tone generation
-    const omega = (2 * Math.PI * this.config.toneHz) / this.config.sampleRate;
+    const omega = (2 * Math.PI * this.config.toneHz) / sampleRate;
 
-    // Fade samples
-    const fadeSamples = Math.floor(fadeDuration * this.config.sampleRate);
+    // Fade samples - ensure minimum size for reliable playback
+    const minFadeSamples = Math.max(48, Math.floor(fadeDuration * sampleRate));
 
     for (const symbol of symbols) {
-      const symbolSamples = Math.round(symbol.duration * this.config.sampleRate);
+      const symbolSamples = Math.round(symbol.duration * sampleRate);
 
       if (symbol.type === "tone") {
-        // Generate sine wave with fade envelope
+        // Generate sine wave with smooth cosine envelope
         for (let i = 0; i < symbolSamples && sampleIndex < totalSamples; i++, sampleIndex++) {
+          // Generate sine wave
           let amplitude = Math.sin(omega * sampleIndex);
 
-          // Apply fade envelope
-          if (fadeSamples > 0) {
-            if (i < fadeSamples) {
-              amplitude *= i / fadeSamples;
-            } else if (i >= symbolSamples - fadeSamples) {
-              amplitude *= (symbolSamples - i) / fadeSamples;
+          // Apply smooth cosine envelope for click-free transitions
+          const envSamples = Math.min(minFadeSamples, Math.floor(symbolSamples / 2));
+          if (envSamples > 0) {
+            if (i < envSamples) {
+              // Smooth attack using cosine curve
+              const env = 0.5 * (1 - Math.cos(Math.PI * i / envSamples));
+              amplitude *= env;
+            } else if (i >= symbolSamples - envSamples) {
+              // Smooth decay using cosine curve
+              const decayPos = i - (symbolSamples - envSamples);
+              const env = 0.5 * (1 + Math.cos(Math.PI * decayPos / envSamples));
+              amplitude *= env;
             }
           }
 

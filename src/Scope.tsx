@@ -32,6 +32,19 @@ export const Scope = ({
 
   return (
     <Box style={{ position: "relative", width: "100%" }}>
+      {/* Mint green top accent line */}
+      <Box
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: "linear-gradient(90deg, #10b981, #0ea5e9)",
+          borderRadius: "12px 12px 0 0",
+          zIndex: 2,
+        }}
+      />
       <Box
         component="canvas"
         ref={canvasRef}
@@ -40,6 +53,8 @@ export const Scope = ({
           background: "var(--mantine-color-dark-9)",
           width: "100%",
           height: "256px",
+          borderRadius: 12,
+          boxShadow: "0 4px 12px rgba(16, 185, 129, 0.15)",
         }}
       />
       <Box
@@ -49,9 +64,10 @@ export const Scope = ({
           right: 0,
           top: `${topPercent}%`,
           height: `${heightPercent}%`,
-          borderTop: "1px solid var(--mantine-color-red-7)",
-          borderBottom: "1px solid var(--mantine-color-red-7)",
+          borderTop: "2px solid #10b981",
+          borderBottom: "2px solid #10b981",
           pointerEvents: "none",
+          opacity: 0.8,
         }}
       />
     </Box>
