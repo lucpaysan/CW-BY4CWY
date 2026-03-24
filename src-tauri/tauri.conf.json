@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; media-src 'self' blob:; connect-src 'self' https://github.com/"
     }
   },
   "bundle": {
@@ -36,6 +36,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "macOS": {
+      "minimumSystemVersion": "10.13",
+      "entitlements": "./entitlements.plist"
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser"
