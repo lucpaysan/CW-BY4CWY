@@ -28,9 +28,8 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app (portable exe, no installer)
-        working-directory: ./src-tauri
         run: |
-          cargo tauri build --bundles app --config tauri.windows.conf.json
+          npx tauri build --bundles app --config src-tauri/tauri.windows.conf.json
 
       - name: Upload Windows portable .exe
         uses: actions/upload-artifact@v4
@@ -63,9 +62,8 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Build Tauri app (Android APK)
-        working-directory: ./src-tauri
         run: |
-          cargo tauri build --bundles apk --config tauri.android.conf.json
+          npx tauri build --bundles apk --config src-tauri/tauri.android.conf.json
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
