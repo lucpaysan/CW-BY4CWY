@@ -36,17 +36,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "macOS": {
-      "minimumSystemVersion": "10.13"
-    },
     "windows": {
       "nsis": {
         "installMode": "currentUser"
       }
     },
-    "resources": {
-    "../dist": ""
-  },
+    "resources": [],
     "shortDescription": "Morse Code Encoder/Decoder",
     "longDescription": "CW Master is a web-based Morse Code encoder and decoder supporting both traditional signal processing and deep learning. Based on web-deep-cw-decoder by e04. Enhanced by BY4CWY.",
     "copyright": "Copyright (c) 2026 BY4CWY. Based on web-deep-cw-decoder by e04 (MIT License). Uses ONNX Runtime Web (Apache-2.0).",
