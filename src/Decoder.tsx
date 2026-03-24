@@ -50,30 +50,50 @@ export const Decoder = () => {
   }, [autoFilterEnabled]);
 
   const getStream = async (selectedAudioInput?: string) => {
+    console.log("[Decoder] getStream called, mediaDevices:", !!navigator.mediaDevices);
+
+    if (!navigator.mediaDevices) {
+      console.error("[Decoder] navigator.mediaDevices is not available");
+      alert("Error: Audio input not available in this browser.");
+      return;
+    }
+
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
     }
 
-    const newStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: selectedAudioInput
-          ? { exact: selectedAudioInput }
-          : undefined,
-        sampleRate: SAMPLE_RATE,
-        channelCount: 1,
-        echoCancellation: false,
-        autoGainControl: false,
-        noiseSuppression: false,
-      },
-    });
+    try {
+      console.log("[Decoder] Requesting microphone access...");
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: selectedAudioInput
+            ? { exact: selectedAudioInput }
+            : undefined,
+          sampleRate: SAMPLE_RATE,
+          channelCount: 1,
+          echoCancellation: false,
+          autoGainControl: false,
+          noiseSuppression: false,
+        },
+      });
 
-    setStream(newStream);
+      console.log("[Decoder] Microphone access granted, stream:", newStream.id);
+      setStream(newStream);
 
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const audioInputs = devices.filter(
-      (device) => device.kind === "audioinput",
-    );
-    setAudioInputDevices(audioInputs);
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(
+        (device) => device.kind === "audioinput",
+      );
+      console.log("[Decoder] Found audio inputs:", audioInputs.length);
+      setAudioInputDevices(audioInputs);
+    } catch (error) {
+      console.error("[Decoder] Failed to get microphone access:", error);
+      if (error instanceof Error) {
+        alert(`Error: ${error.message}`);
+      } else {
+        alert("Error: Could not access microphone. Please check permissions.");
+      }
+    }
   };
 
   const isLoading = decoderMode === "DL" && (!loaded || (language === "EN/JA" && !loadedJa)) || false;
