@@ -25,7 +25,6 @@ type UseDecodeParams = {
   filterWidth: number;
   gain: number;
   stream: MediaStream | null;
-  language: "EN" | "EN/JA";
   decodeWindowSeconds: number;
 };
 
@@ -34,13 +33,10 @@ export const useDecode = ({
   filterWidth,
   gain,
   stream,
-  language,
   decodeWindowSeconds,
 }: UseDecodeParams) => {
   const [loaded, setLoaded] = useState(false);
-  const [loadedJa, setLoadedJa] = useState(false);
   const [currentSegments, setCurrentSegments] = useState<TextSegment[]>([]);
-  const [currentSegmentsJa, setCurrentSegmentsJa] = useState<TextSegment[]>([]);
   const [isDecoding, setIsDecoding] = useState(false);
 
   const filterParamsRef = useRef({ filterFreq, filterWidth });
@@ -48,19 +44,10 @@ export const useDecode = ({
 
   useEffect(() => {
     (async () => {
-      await loadModel("en");
+      await loadModel();
       setLoaded(true);
     })();
   }, []);
-
-  useEffect(() => {
-    if (language === "EN/JA" && !loadedJa) {
-      (async () => {
-        await loadModel("ja");
-        setLoadedJa(true);
-      })();
-    }
-  }, [language, loadedJa]);
 
   useEffect(() => {
     filterParamsRef.current = { filterFreq, filterWidth };
@@ -68,7 +55,6 @@ export const useDecode = ({
 
   useEffect(() => {
     setCurrentSegments([]);
-    setCurrentSegmentsJa([]);
   }, [decodeWindowSeconds]);
 
   useEffect(() => {
@@ -78,17 +64,18 @@ export const useDecode = ({
 
     let cancelled = false;
     let lastAudioVersion = -1;
+    let isRunning = true;
 
     const decodeContinuously = async () => {
-      while (!cancelled) {
+      while (!cancelled && isRunning) {
         const audioVersion = audioBufferRef.current.version;
         if (audioVersion === lastAudioVersion) {
           await waitForNextAudioChunk(
             audioBufferRef,
             audioVersion,
-            () => cancelled,
+            () => cancelled || !isRunning,
           );
-          if (cancelled) {
+          if (cancelled || !isRunning) {
             return;
           }
           continue;
@@ -97,40 +84,33 @@ export const useDecode = ({
         lastAudioVersion = audioVersion;
         const { filterFreq, filterWidth } = filterParamsRef.current;
 
-        const segmentsEn = await runInference(
-          audioBufferRef.current.samples,
-          filterFreq,
-          filterWidth,
-          "en"
-        );
-        if (cancelled) {
-          return;
-        }
-        setCurrentSegments(segmentsEn);
-
-        if (language === "EN/JA" && loadedJa) {
-          const segmentsJa = await runInference(
+        try {
+          const segments = await runInference(
             audioBufferRef.current.samples,
             filterFreq,
             filterWidth,
-            "ja"
           );
-          if (cancelled) {
+          if (cancelled || !isRunning) {
             return;
           }
-          setCurrentSegmentsJa(segmentsJa);
+          setCurrentSegments(segments);
+        } catch (error) {
+          console.error("[useDecode] Inference error:", error);
         }
       }
     };
 
     setIsDecoding(true);
-    void decodeContinuously();
+    decodeContinuously().catch((error) => {
+      console.error("[useDecode] Decode loop error:", error);
+    });
 
     return () => {
       cancelled = true;
+      isRunning = false;
       setIsDecoding(false);
     };
-  }, [stream, loaded, loadedJa, language, audioBufferRef]);
+  }, [stream, loaded, audioBufferRef]);
 
-  return { loaded, loadedJa, currentSegments, currentSegmentsJa, isDecoding };
+  return { loaded, currentSegments, isDecoding };
 };

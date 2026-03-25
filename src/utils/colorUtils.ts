@@ -27,20 +27,24 @@ export function hslToRgb(
   return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }
 
+// Teal spectrogram color scheme
 export function buildColorLUT(): Array<[number, number, number]> {
   const lut: Array<[number, number, number]> = new Array(256);
 
   for (let v = 0; v < 256; v++) {
     let t = v / 255;
 
-    const gamma = 2.2;
+    // Apply gamma correction for better contrast
+    const gamma = 2.0;
     t = Math.pow(t, gamma);
 
-    const hue = (220 * (1 - t)) / 360;
-    const sat = 1.0;
-    const light = 0.15 + 0.75 * t;
+    // Hue range: deep teal (195) to bright teal-cyan (175)
+    // This creates a cool blue-green palette that contrasts well with gold UI
+    const hue = 195 - t * 25; // 195 (teal) to 170 (teal-cyan)
+    const sat = 0.85 + t * 0.15; // 85% to 100% saturation
+    const light = 0.08 + t * 0.72; // 8% to 80% brightness
 
-    lut[v] = hslToRgb(hue, sat, light);
+    lut[v] = hslToRgb(hue / 360, sat, light);
   }
 
   return lut;

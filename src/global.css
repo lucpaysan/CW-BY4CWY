@@ -1,12 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* Primary palette - warm gold */
+  --gold-primary: #B69E64;
+  --gold-light: #D4C4A0;
+  --gold-dark: #8A7650;
+  --gold-cream: #FAF8F5;
+  --gold-warm: #E8DFC8;
+
+  /* Secondary palette - teal */
+  --teal-primary: #077B9C;
+  --teal-light: #3A9FB8;
+  --teal-dark: #054E63;
+  --teal-muted: #7BB5C5;
+
+  /* Background & surface */
+  --bg-main: #FAF8F5;
+  --bg-card: #FFFFFF;
+  --bg-sidebar: #2D2A26;
+  --bg-dark: #1A1816;
+
+  /* Text */
+  --text-primary: #2D2A26;
+  --text-secondary: #6B6560;
+  --text-muted: #9A9590;
+  --text-on-dark: #F5F3F0;
+
+  /* Borders */
+  --border-light: #E8DFC8;
+  --border-dark: #3D3A36;
+
+  /* Accents */
+  --accent-success: #4A9B6E;
+  --accent-error: #C45C5C;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: "Roboto Mono", monospace;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gold-light);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-primary);
 }
 
 @keyframes decode-scroll-left {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(calc(-1 * var(--decode-scroll-step-pct, 0%)));
-  }
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-1 * var(--decode-scroll-step-pct, 0%))); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
 }

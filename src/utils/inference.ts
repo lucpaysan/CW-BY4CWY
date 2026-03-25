@@ -1,13 +1,10 @@
 import type { TextSegment } from "./textDecoder";
 
-type Lang = "en" | "ja";
-
 type WorkerRequest =
-  | { id: number; type: "loadModel"; lang: Lang }
+  | { id: number; type: "loadModel" }
   | {
       id: number;
       type: "runInference";
-      lang: Lang;
       audioBuffer: Float32Array;
       filterFreq: number | null;
       filterWidth: number;
@@ -20,10 +17,7 @@ type WorkerResponse =
 
 let inferenceWorker: Worker | null = null;
 let nextRequestId = 1;
-const modelLoadPromises: Record<Lang, Promise<void> | null> = {
-  en: null,
-  ja: null,
-};
+let modelLoadPromise: Promise<void> | null = null;
 const pendingRequests = new Map<
   number,
   {
@@ -79,21 +73,21 @@ function sendMessage(
   });
 }
 
-export async function loadModel(lang: Lang = "en"): Promise<void> {
-  if (modelLoadPromises[lang]) return modelLoadPromises[lang]!;
+export async function loadModel(): Promise<void> {
+  if (modelLoadPromise) return modelLoadPromise;
 
-  const promise = sendMessage({ type: "loadModel", lang })
+  const promise = sendMessage({ type: "loadModel" })
     .then((response) => {
       if (response.type === "modelLoaded") return;
       if (response.type === "error") throw new Error(response.error);
       throw new Error("Unexpected worker response while loading model.");
     })
     .catch((error) => {
-      modelLoadPromises[lang] = null;
+      modelLoadPromise = null;
       throw error;
     });
 
-  modelLoadPromises[lang] = promise;
+  modelLoadPromise = promise;
 
   return promise;
 }
@@ -102,10 +96,9 @@ export async function runInference(
   audioBuffer: Float32Array,
   filterFreq: number | null,
   filterWidth: number,
-  lang: Lang = "en",
 ): Promise<TextSegment[]> {
   try {
-    await loadModel(lang);
+    await loadModel();
   } catch (error) {
     console.error("Failed to load inference model", error);
     return [];
@@ -117,7 +110,6 @@ export async function runInference(
     const response = await sendMessage(
       {
         type: "runInference",
-        lang,
         audioBuffer: audioCopy,
         filterFreq,
         filterWidth,

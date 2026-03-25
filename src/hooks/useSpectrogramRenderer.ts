@@ -19,6 +19,7 @@ export const useSpectrogramRenderer = ({
   const nodesRef = useRef<{
     audioCtx: AudioContext;
     source: MediaStreamAudioSourceNode;
+    gainNode: GainNode;
     analyser: AnalyserNode;
   } | null>(null);
 
@@ -53,7 +54,7 @@ export const useSpectrogramRenderer = ({
     analyser.maxDecibels = -30;
     gainNode.connect(analyser);
 
-    nodesRef.current = { audioCtx, source, analyser };
+    nodesRef.current = { audioCtx, source, gainNode, analyser };
 
     const freqBins = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(freqBins);
@@ -160,6 +161,7 @@ export const useSpectrogramRenderer = ({
       resizeObserver.disconnect();
       if (nodesRef.current) {
         nodesRef.current.source.disconnect();
+        nodesRef.current.gainNode.disconnect();
         nodesRef.current.analyser.disconnect();
         nodesRef.current.audioCtx.close();
         nodesRef.current = null;

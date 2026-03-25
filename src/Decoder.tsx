@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   DEFAULT_DECODE_BANDWIDTH_HZ,
   DEFAULT_DECODE_WINDOW_S,
@@ -9,217 +9,355 @@ import {
 import { Scope } from "./Scope";
 import { useDecode } from "./useDecode";
 import { DecodeDisplay } from "./DecodeDisplay";
-import { Box, Button, Flex, Stack, NativeSelect, Tooltip } from "@mantine/core";
+import { Box, Button, Flex, Select, Text } from "@mantine/core";
 
 export const Decoder = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [filterFreq, setFilterFreq] = useState<number | null>(null);
-  const [filterWidth, setFilterWidth] = useState<number>(250);
+  const [filterWidth, setFilterWidth] = useState<number>(150);
   const [gain, setGain] = useState<number>(0);
-  const [language, setLanguage] = useState<"EN" | "EN/JA">("EN");
   const [decodeWindowSeconds, setDecodeWindowSeconds] =
     useState<DecodeWindowSeconds>(DEFAULT_DECODE_WINDOW_S);
 
-  const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>(
-    [],
-  );
-  const [selectedAudioInput, _setSelectedAudioInput] = useState<string>("");
+  const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedAudioInput, setSelectedAudioInput] = useState<string>("");
 
-  const { loaded, loadedJa, currentSegments, currentSegmentsJa, isDecoding } =
-    useDecode({
-      filterFreq,
-      filterWidth,
-      gain,
-      stream,
-      language,
-      decodeWindowSeconds,
-    });
+  const { loaded, currentSegments, isDecoding } = useDecode({
+    filterFreq,
+    filterWidth,
+    gain,
+    stream,
+    decodeWindowSeconds,
+  });
 
-  const setSelectedAudioInput = (deviceId: string) => {
-    _setSelectedAudioInput(deviceId);
-    getStream(deviceId);
-  };
-
-  const getStream = async (selectedAudioInput?: string) => {
+  const getStream = async (deviceId?: string) => {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
     }
 
-    const newStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: selectedAudioInput
-          ? { exact: selectedAudioInput }
-          : undefined,
-        sampleRate: SAMPLE_RATE,
-        channelCount: 1,
-        echoCancellation: false,
-        autoGainControl: false,
-        noiseSuppression: false,
-      },
-    });
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          sampleRate: SAMPLE_RATE,
+          channelCount: 1,
+          echoCancellation: false,
+          autoGainControl: false,
+          noiseSuppression: false,
+        },
+      });
 
-    setStream(newStream);
+      setStream(newStream);
 
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const audioInputs = devices.filter(
-      (device) => device.kind === "audioinput",
-    );
-    setAudioInputDevices(audioInputs);
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter((device) => device.kind === "audioinput");
+      setAudioInputDevices(audioInputs);
+    } catch (error) {
+      console.error("[Decoder] Failed to get microphone access:", error);
+      if (error instanceof Error) {
+        alert(`Error: ${error.message}`);
+      } else {
+        alert("Error: Could not access microphone. Please check permissions.");
+      }
+    }
   };
 
-  const isLoading = !loaded || (language === "EN/JA" && !loadedJa);
+  const handleDeviceChange = (deviceId: string | null) => {
+    if (deviceId) {
+      setSelectedAudioInput(deviceId);
+      getStream(deviceId);
+    }
+  };
+
+  const handleStartStop = () => {
+    if (isDecoding) {
+      // Stop all tracks before clearing stream
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      setStream(null);
+    } else {
+      getStream(selectedAudioInput || undefined);
+    }
+  };
+
+  // Load microphone devices on mount
+  useEffect(() => {
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      const audioInputs = devices.filter((device) => device.kind === "audioinput");
+      setAudioInputDevices(audioInputs);
+    });
+  }, []);
+
+  const isLoading = !loaded;
   const isFilterEnabled = filterFreq !== null;
-  const activeFilterWidth = isFilterEnabled
-    ? filterWidth
-    : DEFAULT_DECODE_BANDWIDTH_HZ;
-  const showJapaneseDisplay = language === "EN/JA";
+  const activeFilterWidth = isFilterEnabled ? filterWidth : DEFAULT_DECODE_BANDWIDTH_HZ;
+
+  const selectStyles = {
+    input: {
+      background: "var(--bg-main)",
+      border: "1px solid var(--border-light)",
+      color: "var(--gold-dark)",
+      fontWeight: 600,
+      fontSize: 12,
+    },
+    dropdown: {
+      background: "var(--bg-card)",
+      border: "1px solid var(--border-light)",
+    },
+    option: {
+      color: "var(--text-primary)",
+      "&[selected]": {
+        background: "rgba(182, 158, 100, 0.15)",
+        color: "var(--gold-dark)",
+      },
+      "&:hover": {
+        background: "rgba(182, 158, 100, 0.08)",
+      },
+    },
+  };
+
+  const micData = audioInputDevices.map((device) => ({
+    value: device.deviceId,
+    label: device.label || `Mic ${audioInputDevices.indexOf(device) + 1}`,
+  }));
 
   return (
-    <Stack gap={8}>
-      <Flex justify="space-between" align="center">
-        <Flex align="center" gap="sm">
-          <Button
-            w={200}
-            color={isDecoding ? "red" : "indigo"}
-            onClick={() => {
-              if (isDecoding) {
-                setStream(null);
-              } else {
-                getStream(selectedAudioInput ?? undefined);
-              }
-            }}
-            disabled={isLoading}
-          >
-            {isDecoding ? "STOP" : "START"}
-          </Button>
-          {isLoading && (
+    <Flex direction="column" gap={16}>
+      {/* Control Bar */}
+      <Flex
+        p={16}
+        style={{
+          background: "var(--bg-card)",
+          borderRadius: 16,
+          border: "1px solid var(--border-light)",
+        }}
+        align="center"
+        justify="space-between"
+        wrap="wrap"
+        gap={16}
+      >
+        {/* Start/Stop Button */}
+        <Button
+          size="lg"
+          radius="xl"
+          onClick={handleStartStop}
+          disabled={isLoading}
+          style={{
+            background: isDecoding
+              ? "linear-gradient(135deg, var(--accent-error), #d47070)"
+              : "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+            border: "none",
+            fontWeight: 700,
+            fontSize: 16,
+            padding: "0 32px",
+            height: 48,
+            boxShadow: isDecoding
+              ? "0 4px 12px rgba(196, 92, 92, 0.3)"
+              : "0 4px 12px rgba(182, 158, 100, 0.3)",
+          }}
+        >
+          {isDecoding ? "■ STOP" : "▶ START"}
+        </Button>
+
+        {isLoading && (
+          <Flex align="center" gap={8}>
             <Box
-              style={{ color: "var(--mantine-color-gray-5)", fontSize: "14px" }}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "var(--gold-primary)",
+                animation: "pulse-glow 1s ease-in-out infinite",
+              }}
+            />
+            <Text style={{ fontSize: 12, color: "var(--gold-primary)", fontWeight: 600 }}>
+              LOADING MODEL...
+            </Text>
+          </Flex>
+        )}
+
+        {/* Status */}
+        <Flex align="center" gap={12}>
+          <Box
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: isDecoding ? "var(--teal-primary)" : "var(--border-light)",
+              boxShadow: isDecoding ? "0 0 10px var(--teal-primary)" : "none",
+              transition: "all 0.3s ease",
+            }}
+          />
+          <Text style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {isDecoding ? "Listening..." : "Ready"}
+          </Text>
+        </Flex>
+      </Flex>
+
+      {/* Scope */}
+      <Box
+        style={{
+          background: "var(--bg-card)",
+          borderRadius: 16,
+          border: "1px solid var(--border-light)",
+          padding: 16,
+          position: "relative",
+        }}
+      >
+        {stream ? (
+          <Scope
+            stream={stream}
+            setFilterFreq={setFilterFreq}
+            filterFreq={filterFreq}
+            filterWidth={filterWidth}
+            gain={gain}
+            decodeWindowSeconds={decodeWindowSeconds}
+          />
+        ) : (
+          <Box
+            style={{
+              height: 200,
+              background: "linear-gradient(180deg, var(--bg-dark) 0%, var(--bg-sidebar) 100%)",
+              borderRadius: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: "var(--text-muted)", fontSize: 14 }}>
+              Click START to begin decoding
+            </Text>
+          </Box>
+        )}
+      </Box>
+
+      {/* Decode Display */}
+      <Box
+        style={{
+          background: "var(--bg-dark)",
+          borderRadius: 16,
+          border: "1px solid var(--border-dark)",
+          overflow: "hidden",
+        }}
+      >
+        <DecodeDisplay
+          segments={currentSegments}
+          isDecoding={isDecoding}
+          decodeWindowSeconds={decodeWindowSeconds}
+        />
+      </Box>
+
+      {/* Settings Bar */}
+      <Flex
+        p={16}
+        style={{
+          background: "var(--bg-card)",
+          borderRadius: 16,
+          border: "1px solid var(--border-light)",
+        }}
+        gap={24}
+        wrap="wrap"
+        align="center"
+        justify="space-between"
+      >
+        {/* Microphone Select - left side */}
+        <Select
+          placeholder="Select microphone"
+          value={selectedAudioInput}
+          onChange={handleDeviceChange}
+          data={micData.length > 0 ? micData : [{ value: "", label: "No devices found" }]}
+          disabled={isDecoding || micData.length === 0}
+          styles={selectStyles}
+          style={{ width: 180 }}
+        />
+
+        {/* Right side controls */}
+        <Flex gap={24} wrap="wrap" align="center">
+          {/* Window */}
+          <Flex align="center" gap={8}>
+            <Text style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>
+              WINDOW
+            </Text>
+            <Select
+              value={decodeWindowSeconds.toString()}
+              onChange={(v) =>
+                v && setDecodeWindowSeconds(Number(v) as DecodeWindowSeconds)
+              }
+              data={DECODE_WINDOW_OPTIONS.map((s) => ({
+                value: s.toString(),
+                label: `${s}s`,
+              }))}
+              size="xs"
+              styles={selectStyles}
+              style={{ width: 80 }}
+            />
+          </Flex>
+
+          {/* Gain */}
+          <Flex align="center" gap={8}>
+            <Text style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>
+              GAIN
+            </Text>
+            <Select
+              value={gain.toString()}
+              onChange={(v) => v && setGain(Number(v))}
+              data={[
+                { value: "0", label: "+0 dB" },
+                { value: "10", label: "+10 dB" },
+                { value: "20", label: "+20 dB" },
+              ]}
+              size="xs"
+              styles={selectStyles}
+              style={{ width: 90 }}
+            />
+          </Flex>
+
+          {/* Filter Width */}
+          <Flex align="center" gap={8}>
+            <Text style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>
+              FILTER
+            </Text>
+            <Select
+              value={activeFilterWidth.toString()}
+              onChange={(v) => {
+                if (!v) return;
+                setFilterWidth(Number(v));
+              }}
+              data={[
+                { value: "150", label: "150 Hz" },
+                { value: "250", label: "250 Hz" },
+                { value: "350", label: "350 Hz" },
+              ]}
+              size="xs"
+              styles={selectStyles}
+              style={{ width: 100 }}
+            />
+          </Flex>
+
+          {/* Filter Frequency Display */}
+          {filterFreq && (
+            <Box
+              style={{
+                padding: "4px 12px",
+                borderRadius: 8,
+                background: "rgba(7, 123, 156, 0.1)",
+                border: "1px solid var(--teal-primary)",
+              }}
             >
-              LOADING...
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--teal-primary)",
+                }}
+              >
+                {filterFreq} Hz
+              </Text>
             </Box>
           )}
         </Flex>
       </Flex>
-
-      <Stack gap={0}>
-        <Box pos="relative">
-          {stream ? (
-            <Scope
-              stream={stream}
-              setFilterFreq={setFilterFreq}
-              filterFreq={filterFreq}
-              filterWidth={filterWidth}
-              gain={gain}
-              decodeWindowSeconds={decodeWindowSeconds}
-            />
-          ) : (
-            <Box
-              style={{
-                height: "256px",
-                width: "100%",
-                background: "var(--mantine-color-dark-9)",
-              }}
-            />
-          )}
-        </Box>
-
-        <Stack gap={0}>
-          <DecodeDisplay
-            segments={currentSegments}
-            isDecoding={isDecoding}
-            decodeWindowSeconds={decodeWindowSeconds}
-          />
-
-          {showJapaneseDisplay && (
-            <DecodeDisplay
-              segments={currentSegmentsJa}
-              isDecoding={isDecoding}
-              backgroundColor="#36021e"
-              decodeWindowSeconds={decodeWindowSeconds}
-            />
-          )}
-        </Stack>
-      </Stack>
-
-      <Flex gap="md" justify="flex-end" wrap="wrap">
-        <Tooltip label="Available after starting the decoder." withArrow>
-          <Box>
-            <NativeSelect
-              w={200}
-              label="INPUT"
-              data={audioInputDevices.map((device) => ({
-                value: device.deviceId,
-                label:
-                  device.label ||
-                  `Device ${audioInputDevices.indexOf(device) + 1}`,
-              }))}
-              value={selectedAudioInput}
-              onChange={(event) =>
-                setSelectedAudioInput(event.currentTarget.value)
-              }
-              disabled={!stream}
-            />
-          </Box>
-        </Tooltip>
-        <NativeSelect
-          label="GAIN"
-          data={["0", "20"]}
-          value={gain.toString()}
-          onChange={(event) => setGain(Number(event.currentTarget.value))}
-          rightSection={"dB"}
-        />
-        <NativeSelect
-          label="WINDOW"
-          data={DECODE_WINDOW_OPTIONS.map((seconds) => ({
-            value: seconds.toString(),
-            label: seconds.toString(),
-          }))}
-          value={decodeWindowSeconds.toString()}
-          onChange={(event) =>
-            setDecodeWindowSeconds(
-              Number(event.currentTarget.value) as DecodeWindowSeconds,
-            )
-          }
-          rightSection={"s"}
-        />
-        <Tooltip label="Click the scope to enable the filter." withArrow>
-          <Box>
-            <NativeSelect
-              label="FIL WID"
-              data={[
-                {
-                  value: DEFAULT_DECODE_BANDWIDTH_HZ.toString(),
-                  label: `${DEFAULT_DECODE_BANDWIDTH_HZ} (OFF)`,
-                },
-                { value: "100", label: "100" },
-                { value: "150", label: "150" },
-                { value: "250", label: "250" },
-              ]}
-              value={activeFilterWidth.toString()}
-              onChange={(event) => {
-                const nextWidth = Number(event.currentTarget.value);
-                if (nextWidth === DEFAULT_DECODE_BANDWIDTH_HZ) {
-                  setFilterFreq(null);
-                  return;
-                }
-
-                setFilterWidth(nextWidth);
-              }}
-              disabled={!isFilterEnabled}
-              rightSection={"Hz"}
-            />
-          </Box>
-        </Tooltip>
-        <NativeSelect
-          label="CW LANG"
-          data={["EN", "EN/JA"]}
-          value={language}
-          onChange={(event) =>
-            setLanguage(event.currentTarget.value as "EN" | "EN/JA")
-          }
-        />
-      </Flex>
-    </Stack>
+    </Flex>
   );
 };

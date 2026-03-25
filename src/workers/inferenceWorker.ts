@@ -2,22 +2,16 @@
 import * as ort from "onnxruntime-web";
 import { audioToSpectrogramTensor } from "../utils/spectrogramUtils";
 import { decodePredictions, type TextSegment } from "../utils/textDecoder";
-import { ENGLISH_CONFIG, JAPANESE_CONFIG } from "../const";
+import { ENGLISH_CONFIG } from "../const";
 
-type Lang = "en" | "ja";
-
-// Dynamic model URLs using Vite's import.meta.url
-const MODEL_URLS: Record<Lang, string> = {
-  en: new URL(`../${ENGLISH_CONFIG.MODEL_FILE}`, import.meta.url).href,
-  ja: new URL(`../${JAPANESE_CONFIG.MODEL_FILE}`, import.meta.url).href,
-};
+// Dynamic model URL using Vite's import.meta.url
+const MODEL_URL = new URL(`../${ENGLISH_CONFIG.MODEL_FILE}`, import.meta.url).href;
 
 type WorkerRequest =
-  | { id: number; type: "loadModel"; lang: Lang }
+  | { id: number; type: "loadModel" }
   | {
       id: number;
       type: "runInference";
-      lang: Lang;
       audioBuffer: Float32Array;
       filterFreq: number | null;
       filterWidth: number;
@@ -28,29 +22,25 @@ type WorkerResponse =
   | { id: number; type: "inferenceResult"; segments: TextSegment[] }
   | { id: number; type: "error"; error: string };
 
-const sessions: Record<Lang, ort.InferenceSession | null> = {
-  en: null,
-  ja: null,
-};
+let session: ort.InferenceSession | null = null;
 
-async function ensureSession(lang: Lang): Promise<ort.InferenceSession> {
-  if (sessions[lang]) return sessions[lang]!;
+async function ensureSession(): Promise<ort.InferenceSession> {
+  if (session) return session;
   // Fetch ORT assets from the CDN to avoid module fetch failures in the worker.
   ort.env.wasm.wasmPaths =
     "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.0/dist/";
-  sessions[lang] = await ort.InferenceSession.create(MODEL_URLS[lang], {
+  session = await ort.InferenceSession.create(MODEL_URL, {
     executionProviders: ["wasm"],
   });
-  return sessions[lang]!;
+  return session;
 }
 
 async function handleRunInference(
   audioBuffer: Float32Array,
   filterFreq: number | null,
   filterWidth: number,
-  lang: Lang
 ): Promise<TextSegment[]> {
-  const session = await ensureSession(lang);
+  const sess = await ensureSession();
 
   const spectrogramInput = audioToSpectrogramTensor(
     audioBuffer,
@@ -67,17 +57,12 @@ async function handleRunInference(
     spectrogramInput.dims,
   );
 
-  const inputName = session.inputNames[0];
+  const inputName = sess.inputNames[0];
   const feeds = { [inputName]: inputTensor };
-  const results = await session.run(feeds);
-  const outputTensor = results[session.outputNames[0]];
+  const results = await sess.run(feeds);
+  const outputTensor = results[sess.outputNames[0]];
 
-  const decodedSegmentsList = decodePredictions(
-    outputTensor.data,
-    outputTensor.dims,
-    lang
-  );
-
+  const decodedSegmentsList = decodePredictions(outputTensor.data, outputTensor.dims);
   return decodedSegmentsList.length > 0 ? decodedSegmentsList[0] : [];
 }
 
@@ -90,7 +75,7 @@ ctx.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
   try {
     if (message.type === "loadModel") {
-      await ensureSession(message.lang);
+      await ensureSession();
       respond({ id: message.id, type: "modelLoaded" });
       return;
     }
@@ -100,7 +85,6 @@ ctx.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         message.audioBuffer,
         message.filterFreq,
         message.filterWidth,
-        message.lang
       );
       respond({ id: message.id, type: "inferenceResult", segments });
       return;

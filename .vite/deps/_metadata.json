@@ -1,0 +1,49 @@
+{
+  "hash": "9f40b6b8",
+  "configHash": "c5dd2515",
+  "lockfileHash": "4048abbc",
+  "browserHash": "1193b5ec",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "8c8d6f91",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "0f7d8483",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "b679c534",
+      "needsInterop": true
+    },
+    "@mantine/core": {
+      "src": "../../node_modules/@mantine/core/esm/index.mjs",
+      "file": "@mantine_core.js",
+      "fileHash": "53f77185",
+      "needsInterop": false
+    },
+    "onnxruntime-web": {
+      "src": "../../node_modules/onnxruntime-web/dist/ort.bundle.min.mjs",
+      "file": "onnxruntime-web.js",
+      "fileHash": "4ddf9837",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-WN7W3SD2": {
+      "file": "chunk-WN7W3SD2.js"
+    },
+    "chunk-RCGQOTJJ": {
+      "file": "chunk-RCGQOTJJ.js"
+    },
+    "chunk-7D4SUZUM": {
+      "file": "chunk-7D4SUZUM.js"
+    }
+  }
+}
