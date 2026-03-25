@@ -10,7 +10,7 @@ import {
 import { ENGLISH_CONFIG } from "../const";
 
 // Model URL - served from public directory at root
-const MODEL_URL = `/${ENGLISH_CONFIG.MODEL_FILE}`;
+const MODEL_URL = `${self.location.origin}/${ENGLISH_CONFIG.MODEL_FILE}`;
 
 type WorkerRequest =
   | { id: number; type: "loadModel" }
