@@ -154,7 +154,7 @@ export const Decoder = ({ decoderMode }: DecoderProps) => {
           style={{
             background: isDecoding
               ? "linear-gradient(135deg, var(--accent-error), #d47070)"
-              : "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+              : "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
             border: "none",
             fontWeight: 700,
             fontSize: 16,
@@ -175,11 +175,11 @@ export const Decoder = ({ decoderMode }: DecoderProps) => {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: "var(--gold-primary)",
+                background: "var(--teal-primary)",
                 animation: "pulse-glow 1s ease-in-out infinite",
               }}
             />
-            <Text style={{ fontSize: 12, color: "var(--gold-primary)", fontWeight: 600 }}>
+            <Text style={{ fontSize: 12, color: "var(--teal-primary)", fontWeight: 600 }}>
               LOADING MODEL...
             </Text>
           </Flex>
@@ -192,8 +192,8 @@ export const Decoder = ({ decoderMode }: DecoderProps) => {
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: isDecoding ? "var(--teal-primary)" : "var(--border-light)",
-              boxShadow: isDecoding ? "0 0 10px var(--teal-primary)" : "none",
+              background: isDecoding ? "var(--gold-primary)" : "var(--border-light)",
+              boxShadow: isDecoding ? "0 0 10px var(--gold-primary)" : "none",
               transition: "all 0.3s ease",
             }}
           />
@@ -282,7 +282,7 @@ export const Decoder = ({ decoderMode }: DecoderProps) => {
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 24,
-                color: ggMorseText ? "var(--gold-primary)" : "var(--text-muted)",
+                color: ggMorseText ? "var(--teal-primary)" : "var(--text-muted)",
                 letterSpacing: 2,
               }}
             >
@@ -392,14 +392,14 @@ export const Decoder = ({ decoderMode }: DecoderProps) => {
                 padding: "4px 12px",
                 borderRadius: 8,
                 background: "rgba(7, 123, 156, 0.1)",
-                border: "1px solid var(--teal-primary)",
+                border: "1px solid var(--gold-primary)",
               }}
             >
               <Text
                 style={{
                   fontSize: 12,
                   fontWeight: 700,
-                  color: "var(--teal-primary)",
+                  color: "var(--gold-primary)",
                 }}
               >
                 {filterFreq} Hz

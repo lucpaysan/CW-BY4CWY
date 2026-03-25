@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
     <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3A9FB8"/>
-      <stop offset="100%" style="stop-color:#077B9C"/>
+      <stop offset="0%" style="stop-color:#D4C4A0"/>
+      <stop offset="100%" style="stop-color:#B69E64"/>
     </linearGradient>
   </defs>
   <!-- Background circle -->
   <circle cx="16" cy="16" r="15" fill="url(#grad)"/>
-  <!-- Morse pattern - CQ (('-.-.-', '.-.-')) simplified as signal wave -->
+  <!-- Morse pattern - signal wave -->
   <path d="M6 16 L8 16 L8 10 L12 10 L12 22 L16 22 L16 10 L20 10 L20 16 L22 16"
-        stroke="#FAF8F5" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        stroke="#1A1816" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Signal dots -->
-  <circle cx="24" cy="16" r="1.5" fill="#FAF8F5"/>
+  <circle cx="24" cy="16" r="1.5" fill="#1A1816"/>
 </svg>

@@ -344,7 +344,7 @@ export const Training = () => {
         }}
         styles={{
           root: {
-            background: "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+            background: "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
             fontWeight: 700,
             boxShadow: "0 4px 12px rgba(182, 158, 100, 0.3)",
             opacity: isPlaying ? 0.7 : 1,
@@ -402,7 +402,7 @@ export const Training = () => {
           onClick={startSession}
           styles={{
             root: {
-              background: "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+              background: "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
               fontWeight: 700,
               boxShadow: "0 4px 12px rgba(182, 158, 100, 0.3)",
             },
@@ -434,7 +434,7 @@ export const Training = () => {
             onClick={() => playPhrase(currentPhrase)}
             styles={{
               root: {
-                background: "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+                background: "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
                 fontWeight: 700,
                 boxShadow: "0 4px 12px rgba(182, 158, 100, 0.3)",
                 opacity: isPlaying ? 0.7 : 1,
@@ -491,7 +491,7 @@ export const Training = () => {
                 disabled={!userInput.trim() || isPlaying}
                 styles={{
                   root: {
-                    background: "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+                    background: "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
                     fontWeight: 700,
                     boxShadow: "0 4px 12px rgba(182, 158, 100, 0.3)",
                   },
@@ -506,7 +506,7 @@ export const Training = () => {
                 disabled={session.currentIndex >= session.totalPhrases - 1}
                 styles={{
                   root: {
-                    background: "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+                    background: "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
                     fontWeight: 700,
                     boxShadow: "0 4px 12px rgba(182, 158, 100, 0.3)",
                   },
@@ -568,7 +568,7 @@ export const Training = () => {
         }}
         styles={{
           root: {
-            background: "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+            background: "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
             fontWeight: 700,
             boxShadow: "0 4px 12px rgba(182, 158, 100, 0.3)",
             opacity: isPlaying ? 0.7 : 1,
@@ -616,7 +616,7 @@ export const Training = () => {
               disabled={!userInput.trim() || isPlaying}
               styles={{
                 root: {
-                  background: "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+                  background: "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
                   fontWeight: 700,
                   boxShadow: "0 4px 12px rgba(182, 158, 100, 0.3)",
                 },
@@ -696,7 +696,7 @@ export const Training = () => {
           fullWidth
           styles={{
             root: { background: "var(--gold-warm)", borderRadius: 12 },
-            indicator: { background: "var(--gold-primary)" },
+            indicator: { background: "var(--teal-primary)" },
             label: { color: "var(--gold-dark)", fontWeight: 600 },
           }}
         />

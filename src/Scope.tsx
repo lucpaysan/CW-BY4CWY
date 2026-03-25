@@ -38,7 +38,7 @@ export const Scope = ({
           left: 0,
           right: 0,
           height: 2,
-          background: "linear-gradient(90deg, var(--teal-dark), var(--teal-primary), var(--teal-dark))",
+          background: "linear-gradient(90deg, var(--teal-dark), var(--gold-primary), var(--teal-dark))",
           borderRadius: "12px 12px 0 0",
           zIndex: 2,
         }}
@@ -67,8 +67,8 @@ export const Scope = ({
             right: 0,
             top: `${topPercent}%`,
             height: `${heightPercent}%`,
-            borderTop: "2px solid var(--teal-primary)",
-            borderBottom: "2px solid var(--teal-primary)",
+            borderTop: "2px solid var(--gold-primary)",
+            borderBottom: "2px solid var(--gold-primary)",
             background: "rgba(7, 123, 156, 0.15)",
             pointerEvents: "none",
           }}
@@ -83,7 +83,7 @@ export const Scope = ({
           left: 0,
           right: 0,
           height: 2,
-          background: "linear-gradient(90deg, var(--teal-dark), var(--teal-primary), var(--teal-dark))",
+          background: "linear-gradient(90deg, var(--teal-dark), var(--gold-primary), var(--teal-dark))",
           borderRadius: "0 0 12px 12px",
           zIndex: 2,
         }}

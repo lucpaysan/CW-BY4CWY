@@ -238,11 +238,11 @@ export const Encoder = () => {
               disabled={isPlaying}
               styles={{
                 root: {
-                  background: "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+                  background: "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
                   color: "#fff",
                   fontWeight: 700,
                   "&:hover": {
-                    background: "linear-gradient(135deg, var(--gold-dark), var(--gold-primary))",
+                    background: "linear-gradient(135deg, var(--gold-dark), var(--teal-primary))",
                   },
                   boxShadow: "0 2px 8px rgba(182, 158, 100, 0.3)",
                 },
@@ -413,7 +413,7 @@ export const Encoder = () => {
                 fontSize: "18px",
                 background: isPlaying
                   ? "linear-gradient(135deg, var(--accent-error), #d47070)"
-                  : "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))",
+                  : "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))",
                 border: "none",
                 boxShadow: isPlaying
                   ? "0 4px 12px rgba(196, 92, 92, 0.3)"

@@ -1,18 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Primary palette - warm gold */
+  /* Primary palette - teal */
+  --teal-primary: #077B9C;
+  --teal-light: #3A9FB8;
+  --teal-dark: #054E63;
+  --teal-muted: #7BB5C5;
+
+  /* Secondary palette - warm gold */
   --gold-primary: #B69E64;
   --gold-light: #D4C4A0;
   --gold-dark: #8A7650;
   --gold-cream: #FAF8F5;
   --gold-warm: #E8DFC8;
-
-  /* Secondary palette - teal */
-  --teal-primary: #077B9C;
-  --teal-light: #3A9FB8;
-  --teal-dark: #054E63;
-  --teal-muted: #7BB5C5;
 
   /* Background & surface */
   --bg-main: #FAF8F5;
@@ -59,12 +59,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--gold-light);
+  background: var(--teal-light);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gold-primary);
+  background: var(--teal-primary);
 }
 
 @keyframes decode-scroll-left {

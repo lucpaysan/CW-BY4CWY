@@ -35,7 +35,7 @@ export const DecodeDisplay = ({
   segments,
   isDecoding,
   backgroundColor = "var(--bg-dark)",
-  textColor = "var(--gold-primary)",
+  textColor = "var(--teal-primary)",
   decodeWindowSeconds,
 }: DecodeDisplayProps) => {
   const prevSegmentsRef = useRef(segments);
@@ -140,8 +140,8 @@ export const DecodeDisplay = ({
                         overflow: "visible",
                         textDecorationLine: "overline",
                         textDecorationStyle: "wavy",
-                        textDecorationColor: "var(--teal-primary)",
-                        color: "var(--teal-primary)",
+                        textDecorationColor: "var(--gold-primary)",
+                        color: "var(--gold-primary)",
                       }}
                     >
                       {segment.text}

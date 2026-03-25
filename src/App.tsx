@@ -35,7 +35,7 @@ function App() {
               width: 52,
               height: 52,
               borderRadius: 14,
-              background: "linear-gradient(145deg, var(--gold-primary), var(--gold-dark))",
+              background: "linear-gradient(145deg, var(--teal-primary), var(--gold-dark))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -61,7 +61,7 @@ function App() {
                 padding: "14px 8px",
                 borderRadius: 12,
                 background: activeTab === tab.id
-                  ? "linear-gradient(135deg, var(--gold-primary), var(--gold-dark))"
+                  ? "linear-gradient(135deg, var(--teal-primary), var(--gold-dark))"
                   : "rgba(182, 158, 100, 0.1)",
                 border: activeTab === tab.id
                   ? "none"
@@ -129,8 +129,8 @@ function App() {
                 borderRadius: 20,
                 background: decoderMode === "dl"
                   ? "var(--gold-cream)"
-                  : "linear-gradient(135deg, var(--teal-primary), #0a5a6a)",
-                border: `1px solid ${decoderMode === "dl" ? "var(--gold-light)" : "var(--teal-primary)"}`,
+                  : "linear-gradient(135deg, var(--gold-primary), #0a5a6a)",
+                border: `1px solid ${decoderMode === "dl" ? "var(--gold-light)" : "var(--gold-primary)"}`,
                 transition: "all 0.2s ease",
               }}
             >
