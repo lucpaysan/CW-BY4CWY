@@ -36,11 +36,9 @@ let session: ort.InferenceSession | null = null;
 
 async function ensureSession(): Promise<ort.InferenceSession> {
   if (session) return session;
-  // Fetch ORT assets from the CDN to avoid module fetch failures in the worker.
-  ort.env.wasm.wasmPaths =
-    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.0/dist/";
+  // Try wasm first, fallback to webgl then cpu
   session = await ort.InferenceSession.create(MODEL_URL, {
-    executionProviders: ["wasm"],
+    executionProviders: ["wasm", "webgl", "cpu"],
   });
   return session;
 }
