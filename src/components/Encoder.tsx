@@ -1,8 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Box, Button, Flex, Stack, TextInput, Slider, Text, Group, SegmentedControl, Modal, ActionIcon, Tooltip, Paper } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { Box, Button, Flex, Stack, TextInput, Slider, Text, Group, Paper } from "@mantine/core";
 import { MorseEncoder } from "../core/morseEncoder";
-import { presetManager } from "../core/presetManager";
 
 // Common CW phrases for quick send
 const CW_PHRASES = [
@@ -17,16 +15,12 @@ const CW_PHRASES = [
 ];
 
 export const Encoder = () => {
-  const [text, setText] = useState<string>("CQ CQ DE BH4DUF");
+  const [text, setText] = useState<string>("CQ CQ DE ");
   const [wpm, setWpm] = useState<number>(20);
   const [farnsworth, setFarnsworth] = useState<number>(1.0);
   const [toneHz, setToneHz] = useState<number>(700);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(0.8);
-  const [selectedCallsign, setSelectedCallsign] = useState<string>(presetManager.getSelectedCallsignValue());
-  const [callsigns, setCallsigns] = useState(presetManager.getCallsigns());
-  const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false);
-  const [newCallsign, setNewCallsign] = useState<string>("");
 
   const encoderRef = useRef<MorseEncoder>(new MorseEncoder());
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -67,12 +61,6 @@ export const Encoder = () => {
     }
   }, [volume]);
 
-  // Sync callsign selection with preset manager
-  useEffect(() => {
-    const pm = presetManager;
-    pm.selectCallsign(pm.getCallsigns().find(c => c.callsign === selectedCallsign)?.id || "");
-  }, [selectedCallsign]);
-
   const stopAudio = useCallback(() => {
     if (sourceNodeRef.current) {
       try {
@@ -87,7 +75,6 @@ export const Encoder = () => {
 
   /**
    * Generate complete audio buffer for the text and play it
-   * This is cleaner than scheduling multiple small buffers
    */
   const playMorse = useCallback(async () => {
     if (isPlaying) {
@@ -119,8 +106,7 @@ export const Encoder = () => {
       stopAudio();
 
       // Generate complete audio using the encoder's method
-      // This creates a single Float32Array with all symbols concatenated
-      const fadeDuration = Math.max(0.003, 1.2 / wpm * 0.1); // Adaptive fade
+      const fadeDuration = Math.max(0.003, 1.2 / wpm * 0.1);
       const audioData = encoderRef.current.generateAudio(text, fadeDuration);
 
       if (audioData.length === 0) {
@@ -170,16 +156,6 @@ export const Encoder = () => {
     await playMorse();
   }, [isPlaying, stopAudio, playMorse]);
 
-  const handleAddCallsign = () => {
-    if (newCallsign.trim()) {
-      presetManager.addCallsign(newCallsign.trim());
-      setCallsigns(presetManager.getCallsigns());
-      setSelectedCallsign(newCallsign.toUpperCase().trim());
-      setNewCallsign("");
-      closeAddModal();
-    }
-  };
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -197,32 +173,11 @@ export const Encoder = () => {
     <Stack gap="md">
       {/* Main Controls Card */}
       <Paper p="lg" radius="lg" shadow="sm" style={{ background: "white" }}>
-        {/* Header with Callsign Selector */}
+        {/* Header */}
         <Flex justify="space-between" align="center" wrap="wrap" gap="sm" mb="md">
           <Text size="lg" fw={700} c="emerald.7">
             ENCODER
           </Text>
-          <Group gap="xs">
-            <Text size="sm" c="dimmed" fw={500}>CALLSIGN:</Text>
-            <SegmentedControl
-              size="xs"
-              value={selectedCallsign}
-              onChange={setSelectedCallsign}
-              data={callsigns.map(c => ({
-                label: c.callsign,
-                value: c.callsign,
-              }))}
-              styles={{
-                root: { background: "#f0fdf4" },
-                indicator: { background: "#10b981" },
-              }}
-            />
-            <Tooltip label="Add new callsign">
-              <ActionIcon variant="light" color="emerald" onClick={openAddModal} size="sm">
-                <Text size="lg" fw={600}>+</Text>
-              </ActionIcon>
-            </Tooltip>
-          </Group>
         </Flex>
 
         {/* Quick Phrase Buttons */}
@@ -242,7 +197,7 @@ export const Encoder = () => {
           ))}
         </Group>
 
-        {/* Text Input with Callsign Quick Insert */}
+        {/* Text Input */}
         <TextInput
           label="TEXT"
           placeholder="Enter text to encode..."
@@ -256,20 +211,6 @@ export const Encoder = () => {
               borderColor: "#d1fae5",
             },
           }}
-          rightSection={
-            <Tooltip label="Insert callsign">
-              <ActionIcon
-                variant="light"
-                color="emerald"
-                onClick={() => setText(text + selectedCallsign)}
-                disabled={isPlaying}
-                size="sm"
-              >
-                <Text size="xs" fw={600}>DE</Text>
-              </ActionIcon>
-            </Tooltip>
-          }
-          rightSectionWidth={40}
         />
 
         {/* Morse Preview */}
@@ -413,24 +354,6 @@ export const Encoder = () => {
           />
         </Box>
       </Paper>
-
-      {/* Add Callsign Modal */}
-      <Modal opened={addModalOpened} onClose={closeAddModal} title="Add Callsign" centered>
-        <Stack>
-          <TextInput
-            label="Callsign"
-            placeholder="e.g., BH4DUF"
-            value={newCallsign}
-            onChange={(e) => setNewCallsign(e.currentTarget.value.toUpperCase())}
-            autoFocus
-            styles={{ input: { borderColor: "#d1fae5" } }}
-          />
-          <Flex gap="sm" justify="flex-end">
-            <Button variant="light" color="gray" onClick={closeAddModal}>Cancel</Button>
-            <Button color="emerald" onClick={handleAddCallsign} disabled={!newCallsign.trim()}>Add</Button>
-          </Flex>
-        </Stack>
-      </Modal>
     </Stack>
   );
 };

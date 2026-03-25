@@ -3,29 +3,28 @@
 **基于 [web-deep-cw-decoder](https://github.com/e04/web-deep-cw-decoder) by e04 (MIT License) 二创**
 **二创作者: BY4CWY**
 
-Morse Code 编解码一体工具，支持深度学习解码和传统贝叶斯解码。
+面向高中生的 Morse Code 编解码学习工具，支持深度学习解码和传统贝叶斯解码。
 
 ## 功能
 
 - **Morse 编码**: 文本 → Morse 音频，支持可调 WPM 和 Farnsworth 间距
 - **深度学习解码**: CRNN + CTC 神经网络，高精度
 - **贝叶斯解码**: 自适应信号速度，低延迟
-- **呼号预设**: BH4DUF / BY4CWY 快速切换
+- **听力训练**: 三种训练模式 - 听音练习、跟打训练、自由练习
 
 ## 下载
 
-### macOS
-直接运行 `CW-Master-macOS` (13MB，无需安装)
-
 ### Windows
-1. 点击上方 **Tags** → **v1.0.0** (或创建新标签)
-2. GitHub Actions 会自动构建 Windows 版本
-3. 构建完成后在 Artifacts 下载
+在 [Releases](https://github.com/lucpaysan/web-deep-cw-decoder/releases) 下载最新版本安装包
+
+### macOS / Android
+在 [Releases](https://github.com/lucpaysan/web-deep-cw-decoder/releases) 下载对应版本
 
 ## 鸣谢
 
 - 原项目: [web-deep-cw-decoder](https://github.com/e04/web-deep-cw-decoder) by e04
-- 深度学习模型训练: 50小时 Morse Code 音频数据
+- 感谢 BH4DUF、BH4HNM 对软件测试的支持
+- 感谢 BY4CWY 提供整个测试平台
 - ONNX Runtime Web
 - Mantine UI
 
@@ -39,11 +38,11 @@ npm run dev
 ## 构建
 
 ```bash
-# macOS
-cargo build --release  # 输出: src-tauri/target/release/cw-master
-
-# Windows (需要 Windows 环境或 GitHub Actions)
+# 构建所有平台
 npm run tauri:build
+
+# macOS app
+cargo build --release  # 输出: src-tauri/target/release/cw-master
 ```
 
 ## 版权声明
