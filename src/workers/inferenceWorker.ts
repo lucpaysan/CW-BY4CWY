@@ -40,7 +40,7 @@ async function ensureSession(): Promise<ort.InferenceSession> {
   ort.env.wasm.wasmPaths =
     "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.0/dist/";
   session = await ort.InferenceSession.create(MODEL_URL, {
-    executionProviders: ["wasm", "webgl", "cpu"],
+    executionProviders: ["webgpu", "wasm", "webgl", "cpu"],
   });
   return session;
 }
