@@ -10,16 +10,29 @@ function audioCallback(
   event: AudioProcessingEvent,
   audioBufferState: AudioBufferState
 ) {
-  const chunk = event.inputBuffer.getChannelData(0);
-  const chunkLen = chunk.length;
-  const { samples } = audioBufferState;
-  const offset = Math.max(0, samples.length - chunkLen);
-  const chunkSlice =
-    chunkLen > samples.length ? chunk.subarray(chunkLen - samples.length) : chunk;
+  try {
+    const chunk = event.inputBuffer.getChannelData(0);
+    const chunkLen = chunk.length;
+    const { samples } = audioBufferState;
 
-  samples.copyWithin(0, chunkLen);
-  samples.set(chunkSlice, offset);
-  audioBufferState.version += 1;
+    // Guard against pathological cases
+    if (chunkLen === 0 || samples.length === 0) return;
+
+    // Calculate how many "old" samples remain at the tail after shifting left
+    const tailCount = samples.length - chunkLen;
+    if (tailCount > 0) {
+      // Shift existing samples left by chunkLen using non-overlapping subarray copies
+      // This is safe regardless of overlap between source and destination ranges
+      const tailSlice = samples.subarray(chunkLen);
+      samples.set(tailSlice);
+    }
+    // Write new chunk at the end (overwrites the last chunkLen positions)
+    samples.set(chunk, samples.length - chunkLen);
+    audioBufferState.version += 1;
+  } catch (e) {
+    // Swallow callback errors to keep the audio pipeline alive
+    console.warn("[useAudioProcessing] audioCallback error:", e);
+  }
 }
 
 export function useAudioProcessing(

@@ -40,7 +40,17 @@ export function estimateSNR(
   const noisePower = Math.max(0.001, totalPower - signalPower);
 
   // SNR = 10 * log10(signal / noise)
-  const snrDb = 10 * Math.log10(signalPower / noisePower);
+  // Guard against NaN / Infinity from division by zero or log(0)
+  let snrDb: number;
+  if (!isFinite(signalPower) || !isFinite(noisePower) || noisePower === 0 || signalPower === 0) {
+    snrDb = -10; // Worst case
+  } else {
+    const ratio = signalPower / noisePower;
+    snrDb = 10 * Math.log10(ratio);
+    if (!isFinite(snrDb)) {
+      snrDb = -10;
+    }
+  }
 
   return {
     snrDb: Math.max(-10, Math.min(40, snrDb)), // Clamp to reasonable range

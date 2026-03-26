@@ -29,7 +29,7 @@ export const Decoder = ({ decoderMode }: DecoderProps) => {
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioInput, setSelectedAudioInput] = useState<string>("");
 
-  const { loaded, currentSegments, isDecoding, signalQuality, ggMorseText, isGgMorseMode } = useDecode({
+  const { loaded, currentSegments, isDecoding, signalQuality, ggMorseText, isGgMorseMode, workerCrashed } = useDecode({
     filterFreq,
     filterWidth,
     gain,
@@ -226,6 +226,13 @@ export const Decoder = ({ decoderMode }: DecoderProps) => {
         {isGgMorseMode && isDecoding && (
           <Badge variant="light" color="teal" size="sm">
             GG MORSE
+          </Badge>
+        )}
+
+        {/* Worker Crash Warning */}
+        {workerCrashed && !isGgMorseMode && (
+          <Badge variant="filled" color="red" size="sm">
+            ⚠ DECODER ERROR
           </Badge>
         )}
       </Flex>

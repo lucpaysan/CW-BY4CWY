@@ -9,11 +9,24 @@ import {
 } from "../utils/signalQuality";
 import { ENGLISH_CONFIG } from "../const";
 
-// Model URL - derive base path from worker script location
-// Worker is at /CW-BY4CWY/assets/inferenceWorker-xxx.js, so remove /assets/xxx.js to get base
+// Derive model URL from the worker's browser URL (self.location.pathname).
+// In dev: worker at /node_modules/.vite/deps/.../inferenceWorker.js or /src/workers/...
+// In prod: worker at /assets/inferenceWorker-xxx.js
+// We need the web-accessible base path, not the Vite-processed module URL.
+let MODEL_URL: string;
 const WORKER_PATH = self.location.pathname;
-const BASE_PATH = WORKER_PATH.substring(0, WORKER_PATH.indexOf("/assets/"));
-const MODEL_URL = `${self.location.origin}${BASE_PATH}/${ENGLISH_CONFIG.MODEL_FILE}`;
+const ASSETS_MARKER = "/assets/";
+const assetsIndex = WORKER_PATH.lastIndexOf(ASSETS_MARKER);
+if (assetsIndex !== -1) {
+  // Worker is at /<base>/assets/inferenceWorker-xxx.js — go up one level
+  const basePath = WORKER_PATH.substring(0, assetsIndex);
+  MODEL_URL = `${self.location.origin}${basePath}/${ENGLISH_CONFIG.MODEL_FILE}`;
+} else {
+  // Worker is NOT under /assets/ (e.g. dev mode node_modules path).
+  // Use origin + public path as fallback — in both dev and prod,
+  // Vite serves public/ files at the origin root.
+  MODEL_URL = `${self.location.origin}/${ENGLISH_CONFIG.MODEL_FILE}`;
+}
 
 type WorkerRequest =
   | { id: number; type: "loadModel" }
@@ -39,11 +52,12 @@ let session: ort.InferenceSession | null = null;
 
 async function ensureSession(): Promise<ort.InferenceSession> {
   if (session) return session;
-  // Use CDN for WASM files to avoid GitHub Pages serving issues
-  ort.env.wasm.wasmPaths =
-    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.0/dist/";
+  // Serve WASM files locally from public/ (avoids CDN dependency)
+  // In dev: http://localhost:PORT/ort-wasm-simd-threaded.wasm
+  // In prod: served from same origin as the app
+  ort.env.wasm.wasmPaths = `${self.location.origin}/`;
   session = await ort.InferenceSession.create(MODEL_URL, {
-    executionProviders: ["webgpu", "wasm", "webgl", "cpu"],
+    executionProviders: ["wasm", "webgl", "cpu"],
   });
   return session;
 }

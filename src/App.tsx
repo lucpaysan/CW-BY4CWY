@@ -3,6 +3,7 @@ import { Box, Flex, Text, UnstyledButton } from "@mantine/core";
 import { Decoder } from "./Decoder";
 import { Encoder } from "./components/Encoder";
 import { Training } from "./components/Training";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 type TabId = "decode" | "encode" | "training";
 type DecoderMode = "dl" | "ggmorse";
@@ -178,9 +179,21 @@ function App() {
           </Flex>
 
           {/* Tab Content */}
-          {activeTab === "decode" && <Decoder decoderMode={decoderMode} />}
-          {activeTab === "encode" && <Encoder />}
-          {activeTab === "training" && <Training />}
+          {activeTab === "decode" && (
+            <ErrorBoundary>
+              <Decoder decoderMode={decoderMode} />
+            </ErrorBoundary>
+          )}
+          {activeTab === "encode" && (
+            <ErrorBoundary>
+              <Encoder />
+            </ErrorBoundary>
+          )}
+          {activeTab === "training" && (
+            <ErrorBoundary>
+              <Training />
+            </ErrorBoundary>
+          )}
         </Box>
       </Box>
     </Flex>

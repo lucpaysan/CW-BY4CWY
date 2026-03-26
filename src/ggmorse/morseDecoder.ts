@@ -2,65 +2,34 @@
  * Morse Code Decoder
  *
  * Converts dot/dash sequences to text using a trie-based approach.
+ *
+ * Morse->text table is derived at module load from the canonical MORSE_CODE
+ * in const.ts, plus extra punctuation chars not covered by the encoder's
+ * table (e.g. &, :, ;, @, etc.) so the decoder can handle any morse input.
  */
+import { MORSE_CODE as TEXT_TO_MORSE } from "../const";
 
-// Standard Morse Code mapping
-const MORSE_CODE: Record<string, string> = {
-  ".-": "A",
-  "-...": "B",
-  "-.-.": "C",
-  "-..": "D",
-  ".": "E",
-  "..-.": "F",
-  "--.": "G",
-  "....": "H",
-  "..": "I",
-  ".---": "J",
-  "-.-": "K",
-  ".-..": "L",
-  "--": "M",
-  "-.": "N",
-  "---": "O",
-  ".--.": "P",
-  "--.-": "Q",
-  ".-.": "R",
-  "...": "S",
-  "-": "T",
-  "..-": "U",
-  "...-": "V",
-  ".--": "W",
-  "-..-": "X",
-  "-.--": "Y",
-  "--..": "Z",
-  "-----": "0",
-  ".----": "1",
-  "..---": "2",
-  "...--": "3",
-  "....-": "4",
-  ".....": "5",
-  "-....": "6",
-  "--...": "7",
-  "---..": "8",
-  "----.": "9",
-  ".-.-.-": ".",
-  "--..--": ",",
-  "..--..": "?",
-  ".----.": "'",
-  "-.-.--": "!",
-  "-..-.": "/",
-  "-.--.": "(",
-  "-.--.-": ")",
+// Derive morse->text from canonical table
+const MORSE_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(TEXT_TO_MORSE).map(([char, morse]) => [morse, char])
+);
+
+// Augment with extra punctuation chars the encoder doesn't use
+const EXTRA_CHARS: Record<string, string> = {
   ".-...": "&",
   "---...": ":",
   "-.-.-.": ";",
-  "-...-": "=",
   ".-.-.": "+",
-  "-....-": "-",
   "..--.-": "_",
   ".-..-.": '"',
   "...-..-": "$",
   ".--.-.": "@",
+  ".----.": "'",
+  "-.-.--": "!",
 };
+for (const [morse, char] of Object.entries(EXTRA_CHARS)) {
+  MORSE_CODE[morse] = char;
+}
 
 class MorseTrieNode {
   children: Map<string, MorseTrieNode> = new Map();

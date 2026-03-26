@@ -53,6 +53,13 @@ export class ToneSampler {
   private async generateBuffers(): Promise<void> {
     if (!this.audioContext) return;
 
+    // Explicitly clear old buffers before creating new ones —
+    // AudioBuffer objects may be retained by the AudioContext internals
+    // until they are no longer referenced, so we null them out first.
+    this.ditBuffer = null;
+    this.dahBuffer = null;
+    this.silenceBuffer = null;
+
     const { sampleRate, amplitude } = this.config;
 
     // Adaptive envelope - 15% of dot duration, but min 3ms, max 10ms

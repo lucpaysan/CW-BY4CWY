@@ -3,71 +3,7 @@
  * Converts text to Morse code audio with adjustable speed and Farnsworth timing
  */
 
-// Morse code alphabet: A-Z, 0-9, prosigns
-const MORSE_CODE: Record<string, string> = {
-  // Letters
-  A: ".-",
-  B: "-...",
-  C: "-.-.",
-  D: "-..",
-  E: ".",
-  F: "..-.",
-  G: "--.",
-  H: "....",
-  I: "..",
-  J: ".---",
-  K: "-.-",
-  L: ".-..",
-  M: "--",
-  N: "-.",
-  O: "---",
-  P: ".--.",
-  Q: "--.-",
-  R: ".-.",
-  S: "...",
-  T: "-",
-  U: "..-",
-  V: "...-",
-  W: ".--",
-  X: "-..-",
-  Y: "-.--",
-  Z: "--..",
-  // Numbers
-  0: "-----",
-  1: ".----",
-  2: "..---",
-  3: "...--",
-  4: "....-",
-  5: ".....",
-  6: "-....",
-  7: "--...",
-  8: "---..",
-  9: "----.",
-  // Punctuation
-  "=": "-...-",
-  "/": "-..-.",
-  ".": ".-.-.-",
-  ",": "--..--",
-  "?": "..--..",
-  "-": "-....-",
-  "(": "-.--.",
-  ")": "-.--.-",
-  // Prosigns (mapped to special characters for decoder compatibility)
-  AR: ".-.-",
-  AS: ".-...",
-  BK: "-...-.",
-  BT: "-...-",  // Same as =
-  CL: "-.-..-..",
-  CT: "-.-.-",
-  DO: "-..---",
-  ERR: "........",
-  KA: "-.-.-",
-  KN: "-.--.",
-  SK: "...-.-",
-  SN: "...-.",
-  SOS: "...---...",
-  UR: "...--.",  // Same as SN
-};
+import { MORSE_CODE } from "../const";
 
 export interface EncoderConfig {
   /** Words per minute (standard: 20 WPM) */

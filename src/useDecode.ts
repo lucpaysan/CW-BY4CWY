@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type MutableRefObject } from "react";
-import { loadModel, runInference } from "./utils/inference";
+import { loadModel, runInference, getWorkerCrashCount } from "./utils/inference";
 import { useAudioProcessing } from "./hooks/useAudioProcessing";
 import type { TextSegment } from "./utils/textDecoder";
 import type { SignalQualityMetrics } from "./utils/signalQuality";
@@ -46,6 +46,7 @@ export const useDecode = ({
   const [currentSegments, setCurrentSegments] = useState<TextSegment[]>([]);
   const [isDecoding, setIsDecoding] = useState(false);
   const [signalQuality, setSignalQuality] = useState<SignalQualityMetrics | null>(null);
+  const [workerCrashed, setWorkerCrashed] = useState(false);
   const [ggMorseText, setGgMorseText] = useState<string>("");
 
   const filterParamsRef = useRef({ filterFreq, filterWidth });
@@ -112,19 +113,28 @@ export const useDecode = ({
 
           ggmorseRef.current.processSamples(audioBufferRef.current.samples);
         } else {
+          // Capture both version and samples reference atomically before the
+          // async call — the audioBufferRef.current object can be replaced
+          // when decodeWindowSeconds changes.
+          const capturedVersion = audioVersion;
+          const capturedSamples = audioBufferRef.current.samples;
+
           try {
             const { segments, signalQuality: sq } = await runInference(
-              audioBufferRef.current.samples,
+              capturedSamples,
               filterFreq,
               filterWidth,
             );
-            if (cancelled || !isRunning) {
+            // Discard stale result if buffer was replaced during inference
+            if (cancelled || !isRunning || audioBufferRef.current.version !== capturedVersion) {
               return;
             }
             setCurrentSegments(segments);
             setSignalQuality(sq);
+            setWorkerCrashed(false); // Clear crash flag on success
           } catch (error) {
             console.error("[useDecode] Inference error:", error);
+            setWorkerCrashed(getWorkerCrashCount() > 0);
           }
         }
       }
@@ -153,5 +163,6 @@ export const useDecode = ({
     signalQuality,
     ggMorseText,
     isGgMorseMode,
+    workerCrashed,
   };
 };

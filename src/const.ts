@@ -90,3 +90,27 @@ export const SYNTHETIC_CONFIG = {
   SNR_DB_RANGE: [-10, 40] as [number, number],
   DEFAULT_SAMPLE_RATE: 3200,
 };
+
+// ---------------------------------------------------------------------------
+// Canonical Morse Code table: text character → morse string
+// Single source of truth shared by encoder, decoder, and phrase library.
+// ---------------------------------------------------------------------------
+export const MORSE_CODE: Record<string, string> = {
+  // Letters
+  A: ".-",    B: "-...",  C: "-.-.",  D: "-..",   E: ".",
+  F: "..-.",  G: "--.",   H: "....",  I: "..",    J: ".---",
+  K: "-.-",   L: ".-..",  M: "--",   N: "-.",    O: "---",
+  P: ".--.",  Q: "--.-",  R: ".-.",  S: "...",   T: "-",
+  U: "..-",   V: "...-",  W: ".--",  X: "-..-",  Y: "-.--",
+  Z: "--..",
+  // Numbers
+  0: "-----", 1: ".----", 2: "..---", 3: "...--", 4: "....-",
+  5: ".....", 6: "-....", 7: "--...", 8: "---..", 9: "----.",
+  // Punctuation
+  "=": "-...-", "/": "-..-.", ".": ".-.-.-", ",": "--..--",
+  "?": "..--..", "-": "-....-", "(": "-.--.", ")": "-.--.-",
+  // Prosigns (by their standard representations)
+  SK: "...-.-", SN: "...-.",  KN: "-.--.", AR: ".-.-",
+  BK: "-...-.",  BT: "-...-",  CL: "-.-..-..", CT: "-.-.-",
+  SOS: "...---...", ERR: "........",
+};

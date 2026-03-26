@@ -28,21 +28,7 @@ export type PhraseCategory =
   | "technical"     // Equipment & technical terms
   | "organization"; // Ham radio organizations
 
-// Morse code lookup
-const MORSE_CODE: Record<string, string> = {
-  A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.",
-  G: "--.", H: "....", I: "..", J: ".---", K: "-.-", L: ".-..",
-  M: "--", N: "-.", O: "---", P: ".--.", Q: "--.-", R: ".-.",
-  S: "...", T: "-", U: "..-", V: "...-", W: ".--", X: "-..-",
-  Y: "-.--", Z: "--..",
-  0: "-----", 1: ".----", 2: "..---", 3: "...--", 4: "....-",
-  5: ".....", 6: "-....", 7: "--...", 8: "---..", 9: "----.",
-  "=": "-...-", "/": "-..-.", ".": ".-.-.-", ",": "--..--",
-  "?": "..--..", "-": "-....-", "(": "-.--.", ")": "-.--.-",
-  AR: ".-.-", AS: ".-...", BK: "-...-.", BT: "-...-",
-  CL: "-.-..-..", CT: "-.-.-", SK: "...-.-", SN: "...-.",
-  SOS: "...---...", KN: "-.--.",  // Prosigns
-};
+import { MORSE_CODE } from "../const";
 
 /**
  * Convert text to Morse code string
@@ -578,8 +564,8 @@ export const PHRASE_LIBRARY: Phrase[] = [
   },
   {
     id: "qrp",
-    text: "QRQ",
-    morse: "--.- .-. --.-",
+    text: "QRP",
+    morse: "--.- .-. .--.",
     category: "abbreviation",
     difficulty: "advanced",
     description: "Decrease power"

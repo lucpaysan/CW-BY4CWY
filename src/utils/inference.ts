@@ -24,6 +24,7 @@ type WorkerResponse =
 let inferenceWorker: Worker | null = null;
 let nextRequestId = 1;
 let modelLoadPromise: Promise<void> | null = null;
+let workerCrashCount = 0; // Incremented each time the worker crashes; UI can display warning
 const pendingRequests = new Map<
   number,
   {
@@ -55,11 +56,14 @@ function getWorker(): Worker {
     pending.resolve(message);
   };
 
+  // Don't reject ALL pending requests on worker error — just log and let
+  // subsequent requests recreate the worker lazily. This prevents a single
+  // crash from cancelling unrelated in-flight inferences.
   inferenceWorker.onerror = (event: ErrorEvent) => {
-    pendingRequests.forEach(({ reject }) => {
-      reject(new Error(event.message));
-    });
-    pendingRequests.clear();
+    console.error("[inference] Worker error:", event.message, event.filename, event.lineno);
+    workerCrashCount++;
+    // Clear references so next call creates a fresh worker
+    inferenceWorker = null;
   };
 
   return inferenceWorker;
@@ -124,6 +128,8 @@ export async function runInference(
     );
 
     if (response.type === "inferenceResult") {
+      // Reset crash count on successful inference
+      workerCrashCount = 0;
       return { segments: response.segments, signalQuality: response.signalQuality };
     }
 
@@ -132,4 +138,11 @@ export async function runInference(
     console.error("Inference worker error", error);
     return { segments: [], signalQuality: { snrDb: 0, signalPower: 0, noisePower: 0, confidence: 0 } };
   }
+}
+
+/** Returns the number of times the worker has crashed since last successful inference.
+ *  The count resets to 0 on each successful inferenceResult.
+ */
+export function getWorkerCrashCount(): number {
+  return workerCrashCount;
 }
