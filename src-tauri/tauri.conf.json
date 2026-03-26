@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "CW Lab",
-  "version": "2.0.0",
-  "identifier": "com.cwlab.app",
+  "productName": "CW-BY4CWY",
+  "version": "2.1.0",
+  "identifier": "com.by4cwy.cwby4cwy",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,11 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "CW Lab - AI Morse Decoder",
-        "width": 1000,
-        "height": 700,
-        "minWidth": 800,
-        "minHeight": 600,
+        "title": "BY4CWY - WEIYU Amateur Radio Club",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 700,
         "resizable": true,
         "fullscreen": false,
         "center": true

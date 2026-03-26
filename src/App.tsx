@@ -100,28 +100,58 @@ function App() {
         <Box p={28}>
           {/* Header */}
           <Flex align="center" justify="space-between" mb={28}>
-            <Box>
-              <Text
+            <Flex align="center" gap={20}>
+              <Box
+                component="img"
+                src="/logo.png"
+                alt="CW-BY4CWY"
                 style={{
-                  fontSize: 26,
-                  fontWeight: 800,
-                  color: "var(--text-primary)",
-                  letterSpacing: "-0.3px",
+                  width: 120,
+                  height: 120,
+                  borderRadius: 16,
+                  objectFit: "cover",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
                 }}
-              >
-                CW Lab
-              </Text>
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  marginTop: 3,
-                  fontWeight: 500,
-                }}
-              >
-                AI-Powered Morse Code
-              </Text>
-            </Box>
+              />
+              <Box>
+                <Text
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: "var(--text-primary)",
+                    letterSpacing: "2px",
+                    textTransform: "uppercase",
+                    textShadow: "0 1px 2px rgba(7, 123, 156, 0.2)",
+                  }}
+                >
+                  BY4CWY
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    color: "var(--text-secondary)",
+                    letterSpacing: "3px",
+                    textTransform: "uppercase",
+                    marginTop: 4,
+                    opacity: 0.8,
+                  }}
+                >
+                  WEIYU AMATEUR RADIO CLUB
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: "var(--gold-primary)",
+                    fontWeight: 600,
+                    letterSpacing: "1px",
+                    marginTop: 8,
+                  }}
+                >
+                  ◆ AI-POWERED MORSE CODE ◆
+                </Text>
+              </Box>
+            </Flex>
             <UnstyledButton
               onClick={() => setDecoderMode((m) => (m === "dl" ? "ggmorse" : "dl"))}
               style={{
