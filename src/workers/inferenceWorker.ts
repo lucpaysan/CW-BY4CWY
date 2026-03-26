@@ -10,7 +10,7 @@ import {
 import { ENGLISH_CONFIG } from "../const";
 
 // Model URL - derive base path from worker script location
-// Worker is at /cw-by4cwy/assets/inferenceWorker-xxx.js, so remove /assets/xxx.js to get base
+// Worker is at /CW-BY4CWY/assets/inferenceWorker-xxx.js, so remove /assets/xxx.js to get base
 const WORKER_PATH = self.location.pathname;
 const BASE_PATH = WORKER_PATH.substring(0, WORKER_PATH.indexOf("/assets/"));
 const MODEL_URL = `${self.location.origin}${BASE_PATH}/${ENGLISH_CONFIG.MODEL_FILE}`;

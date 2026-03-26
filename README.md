@@ -1,4 +1,4 @@
-# CW LAB
+# CW-BY4CWY
 
 **基于 [web-deep-cw-decoder](https://github.com/e04/web-deep-cw-decoder) by e04 (MIT License) 二创**
 **二创作者: BY4CWY**
@@ -63,4 +63,4 @@ npm run build
 
 ## 版权声明
 
-Copyright (c) 2024-present CW LAB Contributors. Based on web-deep-cw-decoder by e04 (MIT License).
+Copyright (c) 2024-present CW-BY4CWY Contributors. Based on web-deep-cw-decoder by e04 (MIT License).
