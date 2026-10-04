@@ -1,9 +1,9 @@
 [package]
 name = "CW-BY4CWY"
-version = "2.5.5"
+version = "2.6.0"
 description = "CW-BY4CWY - AI-Powered Morse Code Decoder"
 authors = ["BY4CWY"]
-license = "MIT"
+license = "AGPL-3.0"
 repository = ""
 edition = "2021"
 rust-version = "1.77.2"

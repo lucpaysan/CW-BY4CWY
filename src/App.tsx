@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Box, Flex, Text, UnstyledButton } from "@mantine/core";
 import { Decoder } from "./Decoder";
+import { DeepCWStandalone } from "./DeepCWStandalone";
 import { Encoder } from "./components/Encoder";
 import { Training } from "./components/Training";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 type TabId = "decode" | "encode" | "training";
-type DecoderMode = "dl" | "ggmorse";
+type DecoderMode = "dl" | "ggmorse" | "deepcw";
 
 const tabs: { id: TabId; label: string; icon: string }[] = [
   { id: "decode", label: "DECODE", icon: "📡" },
@@ -14,9 +15,23 @@ const tabs: { id: TabId; label: string; icon: string }[] = [
   { id: "training", label: "TRAIN", icon: "🎯" },
 ];
 
+const MODES: { id: DecoderMode; label: string; full: string }[] = [
+  { id: "deepcw", label: "DEEPCW", full: "DeepCW 神经解码（AGPL-3.0，推荐）" },
+  { id: "dl", label: "LEGACY", full: "Legacy 神经解码（MIT 原版）" },
+  { id: "ggmorse", label: "DSP", full: "Goertzel 传统算法（原理教学用）" },
+];
+
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>("decode");
-  const [decoderMode, setDecoderMode] = useState<DecoderMode>("dl");
+  // 默认 DeepCW：实测标准场景 CER 0%，粘连场景也优于 legacy
+  const [decoderMode, setDecoderMode] = useState<DecoderMode>("deepcw");
+
+  const cycleMode = () => {
+    const idx = MODES.findIndex((m) => m.id === decoderMode);
+    setDecoderMode(MODES[(idx + 1) % MODES.length].id);
+  };
+
+  const currentMode = MODES.find((m) => m.id === decoderMode) ?? MODES[0];
 
   return (
     <Flex style={{ height: "100vh", background: "var(--bg-main)" }}>
@@ -92,7 +107,18 @@ function App() {
 
         {/* Version */}
         <Box mt="auto" mb={24} style={{ textAlign: "center" }}>
-          <Text style={{ fontSize: 9, color: "var(--text-muted)" }}>v2.0</Text>
+          <Text style={{ fontSize: 9, color: "var(--text-muted)" }}>v2.6.0</Text>
+          <Text
+            style={{
+              fontSize: 7,
+              color: "var(--text-muted)",
+              opacity: 0.7,
+              marginTop: 2,
+            }}
+            title="本项目集成 DeepCW 模型（AGPL-3.0-only），整体以 AGPL-3.0 分发"
+          >
+            AGPL-3.0
+          </Text>
         </Box>
       </Flex>
 
@@ -154,14 +180,16 @@ function App() {
               </Box>
             </Flex>
             <UnstyledButton
-              onClick={() => setDecoderMode((m) => (m === "dl" ? "ggmorse" : "dl"))}
+              onClick={cycleMode}
+              title={currentMode.full}
               style={{
                 padding: "5px 14px",
                 borderRadius: 20,
-                background: decoderMode === "dl"
-                  ? "var(--gold-cream)"
-                  : "linear-gradient(135deg, var(--teal-primary), var(--teal-dark))",
-                border: `1px solid ${decoderMode === "dl" ? "var(--gold-light)" : "var(--gold-primary)"}`,
+                background:
+                  decoderMode === "deepcw"
+                    ? "var(--gold-cream)"
+                    : "linear-gradient(135deg, var(--teal-primary), var(--teal-dark))",
+                border: `1px solid ${decoderMode === "deepcw" ? "var(--gold-light)" : "var(--gold-primary)"}`,
                 transition: "all 0.2s ease",
               }}
             >
@@ -169,19 +197,22 @@ function App() {
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: decoderMode === "dl" ? "var(--gold-dark)" : "#fff",
+                  color: decoderMode === "deepcw" ? "var(--gold-dark)" : "#fff",
                   letterSpacing: "0.5px",
                 }}
               >
-                {decoderMode === "dl" ? "● DL MODE" : "● GG MODE"}
+                ● {currentMode.label} MODE
               </Text>
-            </UnstyledButton>
-          </Flex>
+            </UnstyledButton>          </Flex>
 
           {/* Tab Content */}
           {activeTab === "decode" && (
             <ErrorBoundary>
-              <Decoder decoderMode={decoderMode} />
+              {decoderMode === "deepcw" ? (
+                <DeepCWStandalone />
+              ) : (
+                <Decoder decoderMode={decoderMode} />
+              )}
             </ErrorBoundary>
           )}
           {activeTab === "encode" && (

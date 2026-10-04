@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CW-BY4CWY",
-  "version": "2.5.5",
+  "version": "2.6.0",
   "identifier": "com.by4cwy.cwby4cwy",
   "build": {
     "frontendDist": "../dist",
@@ -50,8 +50,8 @@
       "../public/logo.png"
     ],
     "shortDescription": "AI-Powered Morse Code Decoder",
-    "longDescription": "CW-BY4CWY is a web-based Morse Code encoder and decoder supporting both traditional signal processing and deep learning. Based on web-deep-cw-decoder by e04. Enhanced by BY4CWY.",
-    "copyright": "Copyright (c) 2026 BY4CWY. Based on web-deep-cw-decoder by e04 (MIT License). Uses ONNX Runtime Web (Apache-2.0).",
+    "longDescription": "CW-BY4CWY is a Morse code communication assistant that converts CW signals into readable text in real time. Built for amateur radio club education. Based on web-deep-cw-decoder by e04, with DeepCW neural decoding engine. Licensed under AGPL-3.0.",
+    "copyright": "Copyright (c) 2026 BY4CWY. Licensed under AGPL-3.0. Includes DeepCW model (c) e04, AGPL-3.0-only.",
     "category": "Utility",
     "publisher": "BY4CWY"
   },

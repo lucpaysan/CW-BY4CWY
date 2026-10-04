@@ -1,7 +1,7 @@
 {
   "name": "CW-BY4CWY",
   "private": true,
-  "version": "2.5.5",
+  "version": "2.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -42,5 +42,7 @@
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2",
     "vite-plugin-singlefile": "^2.3.2"
-  }
+  },
+  "description": "CW 通联辅助工具 —— 把电波中的 Morse 信号实时转成文字",
+  "license": "AGPL-3.0"
 }

@@ -181,6 +181,10 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
 
         <Text size="xs" c="dimmed">
           音频采样率 {DEEPCW_SAMPLE_RATE} Hz · 频带 400–1200 Hz
+          {" · "}
+          <span title="DeepCW 模型由 e04/deepcw-engine 提供，采用 AGPL-3.0-only 许可">
+            模型 DeepCW (AGPL-3.0)
+          </span>
         </Text>
       </Flex>
 
