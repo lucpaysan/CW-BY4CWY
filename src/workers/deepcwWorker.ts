@@ -38,12 +38,7 @@ function resolveBasePath(): string {
   return "";
 }
 
-/** 模型 URL 推导 */
-function resolveModelUrl(fileName: string): string {
-  return `${self.location.origin}${resolveBasePath()}/${fileName}`;
-}
-
-/** 静态资源（WASM）URL 推导 */
+/** 部署根路径下的资源 URL 推导（模型与 WASM 都位于 <base>/ 下） */
 function resolveAssetUrl(fileName: string): string {
   return `${self.location.origin}${resolveBasePath()}/${fileName}`;
 }
@@ -84,12 +79,8 @@ type WorkerResponse =
 let session: ort.InferenceSession | null = null;
 let loadPromise: Promise<ort.InferenceSession> | null = null;
 
-/** WPM 估计器在 Worker 内维护（跨多次推理累积） */
+/** WPM 估计器在 Worker 内维护（跨多次推理平滑） */
 let wpmEstimator: WpmEstimator | null = null;
-/** 上一次推理时窗口的音频时长（秒），用于计算本次新增量 */
-let lastWindowSeconds = 0;
-/** 是否为WPM 统计的首个样本（只建立基线，不计入） */
-let isFirstWpmSample = true;
 
 async function ensureSession(): Promise<ort.InferenceSession> {
   if (session) return session;
@@ -105,7 +96,7 @@ async function ensureSession(): Promise<ort.InferenceSession> {
     ort.env.wasm.wasmPaths = resolveAssetUrl("");
 
     const created = await ort.InferenceSession.create(
-      resolveModelUrl(DEEPCW_MODEL_FILE),
+      resolveAssetUrl(DEEPCW_MODEL_FILE),
       {
         executionProviders: ["wasm", "webgl", "cpu"],
         graphOptimizationLevel: "all",
@@ -172,28 +163,18 @@ async function handleRunInference(
 
   const elements = extractQSOElements(decoded.text);
 
-  // WPM 估计：滚动窗口下只统计「本次新增的音频」。
+  // WPM 估计：**瞬时估计 + EMA**（observeWindow）。
   //
-  // 若直接用 update(text, audioSeconds)，同一段音频会被反复统计，
-  // 实测偏差 40%（详见 docs/AUDIT_REPORT.md P1-1）。
-  // 差值统计后偏差降到 0-4%。
+  // ⚠️ 不能跨推理累计差值：音频缓冲是固定长度的滚动窗口，
+  //    audioSeconds 恒定，且窗口内容的差值在稳态下趋零。
+  //    交叉审计曾用生产调用模式复现出「70 次推理累计码元为 0」
+  //    的完全失效（见 docs/AUDIT_REPORT_2.md X-1）。
+  //    瞬时估计每次独立成立，EMA 平滑误识抖动。
   const audioSeconds = audioBuffer.length / DEEPCW_SAMPLE_RATE;
   if (!wpmEstimator) {
     wpmEstimator = new WpmEstimator({ windowSeconds: Math.round(audioSeconds) });
   }
-
-  // 本次新增的音频时长 = 当前窗口总时长 - 上次窗口总时长。
-  // 首次调用时 lastWindowSeconds 为 0，stepSeconds 也为 0，
-  // 由 updateRolling 的 firstCall 参数保证只建立基线。
-  const stepSeconds = Math.max(0, audioSeconds - lastWindowSeconds);
-  lastWindowSeconds = audioSeconds;
-
-  const wpmResult = wpmEstimator.updateRolling(
-    decoded.text,
-    stepSeconds,
-    isFirstWpmSample,
-  );
-  isFirstWpmSample = false;
+  const wpmResult = wpmEstimator.observeWindow(decoded.text, audioSeconds);
 
   return {
     segments: [
@@ -240,15 +221,11 @@ ctx.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         session = null;
         loadPromise = null;
         wpmEstimator = null;
-        lastWindowSeconds = 0;
-        isFirstWpmSample = true;
         respond({ id: message.id, type: "modelUnloaded" });
         return;
       }
       case "resetWpm": {
         wpmEstimator?.reset();
-        lastWindowSeconds = 0;
-        isFirstWpmSample = true;
         respond({ id: message.id, type: "wpmReset" });
         return;
       }

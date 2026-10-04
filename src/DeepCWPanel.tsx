@@ -46,7 +46,10 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
   const [wpmOutOfRange, setWpmOutOfRange] = useState<boolean>(false);
 
   const audioBufferRef = useAudioProcessing(stream, gain, windowSeconds);
-  const workerCrashed = getDeepCWCrashCount() > 0;
+
+  // Worker 崩溃计数是模块级变量，渲染期读取不会触发重渲染，
+  // 因此在解码循环里同步为 state（见交叉审计 X-6）。
+  const [workerCrashed, setWorkerCrashed] = useState<boolean>(false);
 
   // 预加载模型
   useEffect(() => {
@@ -105,6 +108,7 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
           setSnrDb(result.snrDb);
           setConfidence(result.confidence);
           setLastVersion(version);
+          setWorkerCrashed(getDeepCWCrashCount() > 0);
 
           // WPM 信息（来自本次推理的第一个片段）
           const seg = result.segments[0];

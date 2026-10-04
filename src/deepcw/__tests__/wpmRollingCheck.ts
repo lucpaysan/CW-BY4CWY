@@ -1,18 +1,18 @@
 /**
- * 验证滚动窗口差值统计消除了 WPM 偏差。
+ * 验证「瞬时估计 + EMA」设计在真实调用模式下工作。
  *
- * 复现审计发现的缺陷：真实 20 WPM 被估成 29（+45%）。
+ * ## 历史教训（必须记住）
  *
- * ## 关键设计说明
+ * 早先的 updateRolling（跨推理累计差值）测试全绿，但生产中完全失效：
+ * 测试脚本自己发明了调用约定（stepSeconds=0.64 + 连续码元密度文本），
+ * 而 Worker 的真实情况是「固定长度滚动窗口」——窗口时长恒定、
+ * 内容差值稳态趋零。测试验证了一个不存在的调用方式。
+ * （见 docs/AUDIT_REPORT_2.md X-1）
  *
- * WPM 衡量的是「按键时」的打字速度。CW 通联中静默占很大比例
- * （字间隔 3u、词间隔 7u、停发换气），这些间隔本身就是 CW 时序的
- * 一部分，必须计入 elapsed —— 所以 elapsed 应累加「新增的音频」，
- * 而不是「按键声」。
- *
- * 因此模拟采用连续发射的 CW 流（只有标准字/词间隔，无长时静默）。
+ * 因此本文件的模拟**逐行复刻 deepcwWorker 的调用方式**：
+ * 固定窗口时长、每次传完整窗口文本、无任何特殊参数。
  */
-import { WpmEstimator, countUnits } from "../wpmEstimator.ts";
+import { WpmEstimator, type WpmEstimate } from "../wpmEstimator.ts";
 
 let passed = 0;
 let failed = 0;
@@ -27,111 +27,127 @@ function check(name: string, condition: boolean, detail = "") {
   }
 }
 
-const REPORT = "CQ DE BY4CWY K";
-const REPORT_UNITS = countUnits(REPORT);
-
 /**
- * 构造某时刻窗口内的**连续**码元流。
- *
- * 关键：真实解码输出的是连续字符流，不是离散的整段报文。
- * 早期版本用「整段报文个数」模拟，导致窗口内码元数是阶梯式跳变
- * （每次 +112），而 elapsed 只按 0.64 秒累加 —— 分子被放大 10 倍，
- * 测出 1420% 的假偏差。
- *
- * 正确做法：把窗口内的码元数按「码元密度」均匀铺开，
- * 使 units/elapsed 之比恰好等于真实发送速率。
+ * 构造累计码元数约等于 target 的文本。
+ * "EE" = E(1u键音+0间隔+3u字距) × 2 = 8u
  */
-function windowUnitsAt(now: number, windowSec: number, unitsPerSec: number): number {
-  // 窗口起点之前的部分不计入（已滑出）
-  const from = Math.max(0, now - windowSec);
-  return Math.round((now - from) * unitsPerSec);
+function textForUnits(target: number): string {
+  if (target <= 0) return "";
+  const n = Math.max(1, Math.round(target / 8));
+  return "EE".repeat(n);
 }
 
-function simulate(est: WpmEstimator, wpmTrue: number, rolling: boolean) {
-  const dot = 1.2 / wpmTrue;
-  const cycleSec = REPORT_UNITS * dot;
-  const unitsPerSec = REPORT_UNITS / cycleSec;
-  const windowSec = 12;
-  const stepSec = 2048 / 3200;
-  const updates = Math.floor(45 / stepSec);
+/**
+ * 模拟 deepcwWorker 的真实调用序列：
+ * 固定长度滚动窗口 + 每 stepSec 触发一次推理 + 每次传完整窗口文本。
+ *
+ * @param keyingRatio 发信占空比（1 = 连续发信，0.6 = 发 60% 停 40%）
+ */
+function simulateWorkerPattern(
+  est: WpmEstimator,
+  wpmTrue: number,
+  windowSec: number,
+  keyingRatio = 1,
+): WpmEstimate {
+  const unitsPerKeyedSec = wpmTrue / 1.2; // 每键音秒的码元数
+  const stepSec = 2048 / 3200; // 音频块 2048 采样，与生产一致
+  const duration = 60;
+  const updates = Math.floor(duration / stepSec);
 
-  // 把码元数还原成可被 countUnits 解析的文本：
-  // 用重复的 "E"（1 码元 + 1 内部间隔 0 + 3 字符间隔 = 4 码元）不划算，
-  // 这里直接构造等长文本，仅用于让 countUnits 返回目标码元数。
-  const textForUnits = (target: number): string => {
-    // "EE" = 8 码元 => 每 2 字符 8 码元
-    const n = Math.max(1, Math.round(target / 8));
-    return "EE".repeat(n);
-  };
+  let last: WpmEstimate = est.getEstimate();
 
-  let first = true;
   for (let i = 1; i <= updates; i++) {
     const now = i * stepSec;
-    const units = windowUnitsAt(now, windowSec, unitsPerSec);
-    const text = textForUnits(units);
-    if (rolling) {
-      est.updateRolling(text, stepSec, first);
-      first = false;
-    } else {
-      est.update(text, windowSec);
+    const windowStart = Math.max(0, now - windowSec);
+
+    // 窗口内「键音秒」数：发信期才产生码元
+    let keyedSec = 0;
+    // 按发/停循环（周期 12s：keyingRatio 比例发信）逐段积分
+    const cycle = 12;
+    let t = windowStart;
+    while (t < now) {
+      const phase = t % cycle;
+      const inKeying = phase < cycle * keyingRatio;
+      const segEnd = Math.min(now, t + (inKeying ? cycle * keyingRatio - phase : cycle - phase));
+      if (inKeying) keyedSec += segEnd - t;
+      t = segEnd;
     }
+
+    const windowUnits = Math.round(keyedSec * unitsPerKeyedSec);
+    const text = textForUnits(windowUnits);
+
+    // === 逐行对应 deepcwWorker.handleRunInference ===
+    const audioSeconds = windowSec; // 固定长度滚动窗口：恒定！
+    last = est.observeWindow(text, audioSeconds);
+  }
+
+  return last;
+}
+
+console.log("=== 1. 连续发信：瞬时估计 + EMA（生产调用模式）===\n");
+for (const wpmTrue of [12, 15, 20, 25, 30, 40]) {
+  const est = new WpmEstimator({ windowSeconds: 12 });
+  const r = simulateWorkerPattern(est, wpmTrue, 12, 1);
+  const err = r.wpm !== null ? Math.abs(r.wpm - wpmTrue) / wpmTrue : 1;
+
+  const flag = err <= 0.15 ? "OK " : err <= 0.3 ? "· " : "BAD";
+  console.log(
+    `  ${flag} 真实 ${String(wpmTrue).padStart(2)} WPM → 估计 ${String(r.wpm).padStart(3)}，偏差 ${(err * 100).toFixed(0)}%`,
+  );
+  check(`${wpmTrue} WPM 偏差 <= 15%`, err <= 0.15, `实际 ${(err * 100).toFixed(0)}%`);
+}
+
+console.log("\n=== 2. 间歇发信（发 8s 停 4s）：读数不塌向 0 ===\n");
+{
+  // 已知局限：窗口包含静默时瞬时估计偏低（键音被摊到全窗时长）。
+  // 发 8/停 4 → 理论读数 ≈ 2/3 真实速度。对 20 WPM 应读出 ~13，
+  // 仍在安全区间内、且不会塌向 0 导致误报"过慢"。
+  for (const wpmTrue of [20, 40]) {
+    const est = new WpmEstimator({ windowSeconds: 12 });
+    const r = simulateWorkerPattern(est, wpmTrue, 12, 2 / 3);
+    const lo = wpmTrue * 0.5;
+    const hi = wpmTrue * 1.05;
+    console.log(
+      `  真实 ${wpmTrue} WPM（占空比 2/3）→ 估计 ${r.wpm}（期望 ${lo.toFixed(0)}~${wpmTrue}）`,
+    );
+    check(
+      `${wpmTrue} WPM 间歇读数在 ${lo.toFixed(0)}~${wpmTrue}`,
+      r.wpm !== null && r.wpm >= lo && r.wpm <= hi,
+      `实际 ${r.wpm}`,
+    );
+    check(`${wpmTrue} WPM 间歇不误报超慢`, !r.outOfRange || r.wpm! >= 8, `估计 ${r.wpm}`);
   }
 }
 
-console.log("=== 1. 差值统计（修复后）vs 朴素实现（修复前）\n");
-for (const wpmTrue of [12, 15, 20, 25, 30, 40]) {
-  const estNew = new WpmEstimator({ windowSeconds: 12 });
-  simulate(estNew, wpmTrue, true);
-  const rn = estNew.getEstimate();
-  const errNew = rn.wpm !== null ? Math.abs(rn.wpm - wpmTrue) / wpmTrue : 1;
-
-  const flag = errNew <= 0.25 ? "OK " : errNew <= 0.35 ? "· " : "BAD";
-  console.log(
-    `  ${flag} 真实 ${String(wpmTrue).padStart(2)} WPM → 估计 ${String(rn.wpm).padStart(3)}，偏差 ${(errNew * 100).toFixed(0)}%`,
-  );
-  check(`${wpmTrue} WPM 偏差 <= 30%`, errNew <= 0.3, `实际 ${(errNew * 100).toFixed(0)}%`);
-}
-
-console.log("\n=== 2. 同条件对比：修复前后 ===\n");
-{
-  const a = new WpmEstimator({ windowSeconds: 12 });
-  simulate(a, 20, false);
-  const ra = a.getEstimate();
-  const errA = Math.abs(ra.wpm! - 20) / 20;
-
-  const b = new WpmEstimator({ windowSeconds: 12 });
-  simulate(b, 20, true);
-  const rb = b.getEstimate();
-  const errB = Math.abs(rb.wpm! - 20) / 20;
-
-  console.log(`  朴素（修复前）：${ra.wpm} WPM，偏差 ${(errA * 100).toFixed(0)}%，码元 ${ra.units}`);
-  console.log(`  差值（修复后）：${rb.wpm} WPM，偏差 ${(errB * 100).toFixed(0)}%，码元 ${rb.units}`);
-  console.log("");
-  console.log(`  偏差降低 ${(((errA - errB) / errA) * 100).toFixed(0)}%`);
-  console.log(`  码元样本从 ${ra.units} 降到 ${rb.units}（${(ra.units / rb.units).toFixed(0)}倍虚高已消除）`);
-
-  check("修复后偏差 < 修复前", errB < errA, `${(errB * 100).toFixed(0)}% vs ${(errA * 100).toFixed(0)}%`);
-  check("修复后偏差 <= 25%", errB <= 0.25, `实际 ${(errB * 100).toFixed(0)}%`);
-  check("码元样本不再虚高", rb.units < 1500, `实际 ${rb.units}`);
-}
-
-console.log("\n=== 3. 边界情况 ===\n");
+console.log("\n=== 3. 杂散噪声不污染 EMA ===\n");
 {
   const est = new WpmEstimator({ windowSeconds: 12 });
-  est.updateRolling("", 0.64, true);
-  check("首次调用空文本", true);
+  // 先建立正常读数
+  simulateWorkerPattern(est, 20, 12, 1);
+  const stable = est.getEstimate().wpm;
 
-  est.updateRolling("CQ DE", 0.64, false);
-  check("第二次调用", true);
+  // 混入单个杂散字符（4 码元 < MIN_OBSERVE_UNITS=30，应被门限挡住）
+  for (let i = 0; i < 10; i++) {
+    est.observeWindow("E", 12);
+  }
+  const after = est.getEstimate().wpm;
+  console.log(`  正常读数 ${stable} → 混入杂散后 ${after}`);
+  check("杂散窗口不改变读数", stable !== null && after !== null && Math.abs(after - stable) < 1);
+}
 
-  est.updateRolling("CQ", 0.64, false);
-  check("窗口变短不崩溃", true);
+console.log("\n=== 4. 边界情况 ===\n");
+{
+  const est = new WpmEstimator({ windowSeconds: 12 });
+  check("空窗口文本", est.observeWindow("", 12).wpm === null);
+  check("零时长窗口", est.observeWindow("CQ DE BY4CWY", 0).wpm === null);
+  check("极短窗口合理估计", est.observeWindow("CQ DE BY4CWY", 1) !== null);
 
-  est.updateRolling("", 0.64, false);
-  check("内容变空不崩溃", true);
-
+  // reset 清空全部状态
+  simulateWorkerPattern(est, 20, 12, 1);
+  const before = est.getEstimate().wpm;
   est.reset();
-  check("reset 清空", est.getEstimate().units === 0);
+  const after = est.getEstimate();
+  check("reset 后读数清空", after.wpm === null && before !== null);
 }
 
 console.log(`\n${"-".repeat(52)}`);

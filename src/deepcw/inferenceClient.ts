@@ -43,6 +43,20 @@ const pending = new Map<
   }
 >();
 
+/**
+ * 结算全部在途请求。
+ *
+ * ⚠️ 必须在 Worker 失联（崩溃/terminate）时调用：
+ * 若只是清空 Map 或丢弃引用，await 方（解码循环）会**永久挂起**，
+ * UI 显示"解码中"却从此无输出——比报错更糟的假死。
+ */
+function failAllPending(reason: string): void {
+  for (const entry of pending.values()) {
+    entry.reject(new Error(reason));
+  }
+  pending.clear();
+}
+
 function getWorker(): Worker {
   if (worker) return worker;
 
@@ -63,7 +77,6 @@ function getWorker(): Worker {
     entry.resolve(message);
   };
 
-  // 单个 Worker 崩溃不清空全部在途请求，只标记并让下次调用重建
   worker.onerror = (event: ErrorEvent) => {
     console.error(
       "[deepcw] Worker error:",
@@ -72,6 +85,8 @@ function getWorker(): Worker {
       event.lineno,
     );
     crashCount++;
+    // 在途请求必须结算，否则调用方永久挂起（假死）
+    failAllPending("推理进程崩溃，正在重建");
     worker = null;
     loadPromise = null;
   };
@@ -146,8 +161,8 @@ export function terminateDeepCWWorker(): void {
   }
   loadPromise = null;
   crashCount = 0;
-  // 清空在途请求的引用，避免内存泄漏
-  pending.clear();
+  // 在途请求必须结算，否则 await 方永久挂起（假死）
+  failAllPending("推理进程已终止");
 }
 
 /** 重置 WPM 估计状态（切换解码窗口时调用） */
