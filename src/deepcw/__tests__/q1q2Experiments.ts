@@ -7,7 +7,7 @@
  * Q2: 真实人工发报间距不标准，DeepCW 还稳吗？
  *     对比：标准机器时序vs 逐级增强的抖动 + 噪声
  */
-import { synthCW, MACHINE_TIMING, exportCases, type SynthOptions } from "./cwSynth.ts";
+import { MACHINE_TIMING, exportCases, type SynthOptions } from "./cwSynth.ts";
 
 const outDir = process.argv[2] ?? "/tmp/deepcw_q1q2";
 const timing = MACHINE_TIMING;

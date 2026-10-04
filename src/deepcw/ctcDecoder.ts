@@ -10,6 +10,7 @@ import {
   DEEPCW_OUTPUT_CLASSES,
 } from "./config";
 import { expandAbbreviations } from "./abbrevExpander";
+import { resegment } from "./resegmenter";
 
 export interface DecodedChar {
   char: string;
@@ -18,7 +19,7 @@ export interface DecodedChar {
 }
 
 export interface DeepCWDecodeResult {
-  /** 模型原始输出（未做缩写还原）*/
+  /** 模型原始输出（未做缩写还原、未重切分）*/
   raw: string;
   /** 缩写还原后的文本，例如 AR SK KN*/
   text: string;
@@ -26,6 +27,8 @@ export interface DeepCWDecodeResult {
   /** 整段平均置信度 0~1 */
   confidence: number;
   timeSteps: number;
+  /** 是否发生了连读重切分（说明原输出存在粘连）*/
+  resegmented: boolean;
 }
 
 /**
@@ -33,12 +36,12 @@ export interface DeepCWDecodeResult {
  *
  * @param logProbs 输出张量数据，[batch=1, time, classes] 展平
  * @param dims    张量维度 [1, time, classes]
- * @param expandAbbreviations 是否做缩写还原（默认 true）
+ * @param enableResegment 是否做连读重切分（默认 true）
  */
 export function greedyCTCDecode(
   logProbs: Float32Array | ArrayLike<number>,
   dims: readonly number[],
-  expandAbbreviation = true,
+  enableResegment = true,
 ): DeepCWDecodeResult {
   const timeSteps = dims[1];
   const numClasses = dims[2] ?? DEEPCW_OUTPUT_CLASSES;
@@ -83,11 +86,25 @@ export function greedyCTCDecode(
 
   const confidence = emittedCount > 0 ? confidenceSum / emittedCount : 0;
 
+  // 流水线：缩写还原 → 连读重切分
+  const abbreviated = expandAbbreviations(out);
+
+  let text = abbreviated;
+  let resegmented = false;
+  if (enableResegment && abbreviated) {
+    const res = resegment(abbreviated);
+    if (res.changed && res.tokens.length > 0) {
+      text = res.tokens.join(" ");
+      resegmented = true;
+    }
+  }
+
   return {
     raw: out,
-    text: expandAbbreviation ? expandAbbreviations(out) : out,
+    text,
     chars,
     confidence,
     timeSteps,
+    resegmented,
   };
 }

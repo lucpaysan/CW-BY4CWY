@@ -100,9 +100,25 @@ export const DEEPCW_OUTPUT_CLASSES = 42;
 export const DEEPCW_MIN_RELIABLE_SECONDS = 2;
 export const DEEPCW_MAX_SECONDS = 20;
 
-/** 建议的解码窗口（秒），需>= MIN_RELIABLE_SECONDS*/
-export const DEEPCW_WINDOW_OPTIONS = [6, 12, 18, 30] as const;
+/**
+ * 建议的解码窗口（秒）。
+ *
+ * 下限设为 9 秒而非 6 秒：实测发现在极短窗口下，
+ * 孤立的单元素字符（E = "."、T = "-"）会因为缺少上下文而丢失——
+ * E 仅 0.2 秒、T 仅 0.4 秒，短于模型能可靠辨识的时长。
+ *
+ * 但只要字符后面有内容，短字符就能被带出来（实测 12/12 正确）：
+ *   TU / RES / 73 TU / CQ TEST / NIL / SO / OK 全部解出
+ * 所以保证窗口足够长，即可覆盖这一限制。
+ */
+export const DEEPCW_WINDOW_OPTIONS = [9, 12, 18, 30] as const;
 export type DeepCWWindowSeconds = (typeof DEEPCW_WINDOW_OPTIONS)[number];
+
+/** 默认窗口 */
+export const DEEPCW_DEFAULT_WINDOW: DeepCWWindowSeconds = 12;
+
+/** 低置信度阈值：低于此值的片段在 UI 上标黄提示 */
+export const DEEPCW_LOW_CONFIDENCE = 0.4;
 
 /** 系统可识别的解码引擎 */
 export type DecoderEngineId = "deepcw" | "legacy";

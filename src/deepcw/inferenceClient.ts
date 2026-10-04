@@ -9,7 +9,8 @@ import type { DeepCWSegment } from "../workers/deepcwWorker";
 type WorkerRequest =
   | { id: number; type: "loadModel" }
   | { id: number; type: "runInference"; audioBuffer: Float32Array }
-  | { id: number; type: "unloadModel" };
+  | { id: number; type: "unloadModel" }
+  | { id: number; type: "resetWpm" };
 
 type WorkerResponse =
   | { id: number; type: "modelLoaded" }
@@ -20,6 +21,7 @@ type WorkerResponse =
       signalQuality: { snrDb: number; confidence: number };
     }
   | { id: number; type: "modelUnloaded" }
+  | { id: number; type: "wpmReset" }
   | { id: number; type: "error"; error: string };
 
 export interface DeepCWInferenceResult {
@@ -122,6 +124,15 @@ export async function unloadDeepCWModel(): Promise<void> {
     // Worker 可能已崩溃，忽略
   }
   loadPromise = null;
+}
+
+/** 重置 WPM 估计状态（切换解码窗口时调用） */
+export async function resetDeepCWWpm(): Promise<void> {
+  try {
+    await send({ type: "resetWpm" });
+  } catch {
+    // 忽略
+  }
 }
 
 /** 执行一次推理 */

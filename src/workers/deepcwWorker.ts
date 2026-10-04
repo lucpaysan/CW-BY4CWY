@@ -9,6 +9,7 @@ import * as ort from "onnxruntime-web";
 import { audioToDeepCWSpectrogram } from "../deepcw/spectrogram";
 import { greedyCTCDecode } from "../deepcw/ctcDecoder";
 import { extractQSOElements } from "../deepcw/abbrevExpander";
+import { WpmEstimator } from "../deepcw/wpmEstimator";
 import {
   DEEPCW_MODEL_FILE,
   DEEPCW_INPUT_NAME,
@@ -31,7 +32,8 @@ function resolveModelUrl(fileName: string): string {
 type WorkerRequest =
   | { id: number; type: "loadModel" }
   | { id: number; type: "runInference"; audioBuffer: Float32Array }
-  | { id: number; type: "unloadModel" };
+  | { id: number; type: "unloadModel" }
+  | { id: number; type: "resetWpm" };
 
 export interface DeepCWSegment {
   text: string;
@@ -40,6 +42,12 @@ export interface DeepCWSegment {
   callsigns: string[];
   reports: string[];
   qcodes: string[];
+  /** 是否经过连读重切分 */
+  resegmented: boolean;
+  /** 实测发报速度估计 */
+  wpm: number | null;
+  /** 速度是否超出安全区间 */
+  wpmOutOfRange: boolean;
 }
 
 type WorkerResponse =
@@ -51,10 +59,14 @@ type WorkerResponse =
       signalQuality: { snrDb: number; confidence: number };
     }
   | { id: number; type: "modelUnloaded" }
+  | { id: number; type: "wpmReset" }
   | { id: number; type: "error"; error: string };
 
 let session: ort.InferenceSession | null = null;
 let loadPromise: Promise<ort.InferenceSession> | null = null;
+
+/** WPM 估计器在 Worker 内维护（跨多次推理累积） */
+let wpmEstimator: WpmEstimator | null = null;
 
 async function ensureSession(): Promise<ort.InferenceSession> {
   if (session) return session;
@@ -131,6 +143,13 @@ async function handleRunInference(
 
   const elements = extractQSOElements(decoded.text);
 
+  // WPM 估计：本次音频时长即为该段文本的时长
+  const audioSeconds = audioBuffer.length / DEEPCW_SAMPLE_RATE;
+  if (!wpmEstimator) {
+    wpmEstimator = new WpmEstimator({ windowSeconds: Math.round(audioSeconds) });
+  }
+  const wpmResult = wpmEstimator.update(decoded.text, audioSeconds);
+
   return {
     segments: [
       {
@@ -140,6 +159,9 @@ async function handleRunInference(
         callsigns: elements.callsigns,
         reports: elements.reports,
         qcodes: elements.qcodes,
+        resegmented: decoded.resegmented,
+        wpm: wpmResult.wpm,
+        wpmOutOfRange: wpmResult.outOfRange,
       },
     ],
     signalQuality: {
@@ -172,7 +194,13 @@ ctx.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case "unloadModel": {
         session = null;
         loadPromise = null;
+        wpmEstimator = null;
         respond({ id: message.id, type: "modelUnloaded" });
+        return;
+      }
+      case "resetWpm": {
+        wpmEstimator?.reset();
+        respond({ id: message.id, type: "wpmReset" });
         return;
       }
       default: {

@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Button, Flex, Select, Text, Badge, Group, Loader } from "@mantine/core";
 import { useAudioProcessing } from "./hooks/useAudioProcessing";
 import {
   loadDeepCWModel,
   runDeepCWInference,
+  resetDeepCWWpm,
   getDeepCWCrashCount,
 } from "./deepcw/inferenceClient";
-import { DeepCWSegment } from "./workers/deepcwWorker";
+import type { DeepCWSegment } from "./workers/deepcwWorker";
 import {
   DEEPCW_WINDOW_OPTIONS,
+  DEEPCW_DEFAULT_WINDOW,
   DEEPCW_SAMPLE_RATE,
+  DEEPCW_LOW_CONFIDENCE,
   type DeepCWWindowSeconds,
 } from "./deepcw/config";
+import { WPM_SAFE_MIN, WPM_SAFE_MAX } from "./deepcw/wpmEstimator";
 import { getSNRLabel, getConfidenceLabel } from "./utils/signalQuality";
 
 /**
@@ -28,7 +32,8 @@ interface DeepCWPanelProps {
 
 export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
   const [gain, setGain] = useState<number>(0);
-  const [windowSeconds, setWindowSeconds] = useState<DeepCWWindowSeconds>(12);
+  const [windowSeconds, setWindowSeconds] =
+    useState<DeepCWWindowSeconds>(DEEPCW_DEFAULT_WINDOW);
   const [loading, setLoading] = useState<boolean>(true);
   const [segments, setSegments] = useState<DeepCWSegment[]>([]);
   const [snrDb, setSnrDb] = useState<number>(0);
@@ -36,6 +41,8 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
   const [running, setRunning] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastVersion, setLastVersion] = useState<number>(-1);
+  const [wpm, setWpm] = useState<number | null>(null);
+  const [wpmOutOfRange, setWpmOutOfRange] = useState<boolean>(false);
 
   const audioBufferRef = useAudioProcessing(stream, gain, windowSeconds);
   const workerCrashed = getDeepCWCrashCount() > 0;
@@ -61,10 +68,11 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
     };
   }, []);
 
-  // 切换窗口时清空
+  // 切换窗口时清空，并重置 WPM 估计
   useEffect(() => {
     setSegments([]);
     setLastVersion(-1);
+    void resetDeepCWWpm();
   }, [windowSeconds]);
 
   // 解码循环：音频版本变化即触发一次推理
@@ -86,6 +94,11 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
           setSnrDb(result.snrDb);
           setConfidence(result.confidence);
           setLastVersion(version);
+
+          // WPM 信息（来自本次推理的第一个片段）
+          const seg = result.segments[0];
+          setWpm(seg?.wpm ?? null);
+          setWpmOutOfRange(seg?.wpmOutOfRange ?? false);
         }
         // 约每 150ms 轮询一次，平衡实时性与 CPU 占用
         await new Promise((resolve) => window.setTimeout(resolve, 150));
@@ -198,9 +211,33 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
             推理进程曾中断，正在恢复
           </Badge>
         )}
-        {snrDb !== 0 && <Badge variant="light">SNR {getSNRLabel(snrDb)}</Badge>}
-        {confidence > 0 && (
-          <Badge variant="light">置信度 {getConfidenceLabel(confidence)}</Badge>
+        {snrDb !== 0 && (
+          <Badge variant="light" color={getSNRLabel(snrDb).color}>
+            SNR {getSNRLabel(snrDb).label}
+          </Badge>
+        )}
+        {confidence > 0 &&
+          (confidence < DEEPCW_LOW_CONFIDENCE ? (
+            <Badge variant="light" color="yellow">
+              置信度 {getConfidenceLabel(confidence).label}（偏低，结果可能不准）
+            </Badge>
+          ) : (
+            <Badge variant="light" color={getConfidenceLabel(confidence).color}>
+              置信度 {getConfidenceLabel(confidence).label}
+            </Badge>
+          ))}
+        {wpm != null &&
+          (wpmOutOfRange ? (
+            <Badge variant="light" color="red">
+              约 {wpm} WPM（超出 {WPM_SAFE_MIN}-{WPM_SAFE_MAX}，解码可能失真）
+            </Badge>
+          ) : (
+            <Badge variant="light">约 {wpm} WPM</Badge>
+          ))}
+        {segments[0]?.resegmented && (
+          <Badge variant="outline" color="orange">
+            已重切分（原文有粘连）
+          </Badge>
         )}
       </Group>
 
@@ -227,7 +264,17 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
           <>
             <Text
               component="div"
-              style={{ color: "var(--gold-light, #e8d9a8)", wordBreak: "break-word" }}
+              style={{
+                color: "var(--gold-light, #e8d9a8)",
+                wordBreak: "break-word",
+                // 低置信度时用虚线下划线 + 变暗，提示学生存疑
+                opacity: confidence < DEEPCW_LOW_CONFIDENCE ? 0.75 : 1,
+                textDecoration:
+                  confidence < DEEPCW_LOW_CONFIDENCE
+                    ? "underline dashed"
+                    : "none",
+                textUnderlineOffset: "4px",
+              }}
             >
               {decodedText}
             </Text>

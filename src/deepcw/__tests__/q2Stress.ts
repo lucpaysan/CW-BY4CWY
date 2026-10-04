@@ -9,7 +9,7 @@
  *   - 快速衰落/频偏漂移
  *   - 组合极端条件
  */
-import { synthCW, MACHINE_TIMING, exportCases, type SynthOptions } from "./cwSynth.ts";
+import { MACHINE_TIMING, exportCases, type SynthOptions } from "./cwSynth.ts";
 
 const outDir = process.argv[2] ?? "/tmp/dc_q2_stress";
 const t = MACHINE_TIMING;
