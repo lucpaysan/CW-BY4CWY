@@ -27,7 +27,10 @@ jobs:
           cache: npm
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        # ⚠️ 原用 dtolnay/rust-action，该仓库已下线导致 Windows 构建
+        #    在 "Set up job" 阶段直接失败（2026-10-04 修复）。
+        #    rust-toolchain 是其现役替代品，targets 输入同名同义。
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
 
