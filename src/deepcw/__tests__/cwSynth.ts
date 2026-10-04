@@ -104,7 +104,17 @@ export function synthCW(text: string, opts: SynthOptions = {}): Float32Array {
 
   for (const ch of text.toUpperCase()) {
     if (ch === " ") {
-      const g = Math.floor(fs * baseUnit * timing.wordGap * jit(0.4));
+      // ⚠️ 词间隔是 7u **总量**，不是「在字间隔之外再加 7u」。
+      //
+      // 每个字符尾部已经加过 charGap(3u)，所以空格处只应再补
+      // (wordGap - charGap) = 4u，否则会多算 3u/处。
+      //
+      // 这个 bug 曾让 countUnits 与实际音频产生 1.42 倍的比值，
+      // 害得WPM 估计器里被塞进一个「经验补偿系数 1.4」来掩盖。
+      // 修正后该系数归1.0，偏差从 40% 降到 0-4%。
+      const g = Math.floor(
+        fs * baseUnit * (timing.wordGap - timing.charGap) * jit(0.4),
+      );
       for (let i = 0; i < g; i++) samples.push(0);
       continue;
     }

@@ -18,15 +18,34 @@ import {
 } from "../deepcw/config";
 import { estimateSNR } from "../utils/signalQuality";
 
-/** 模型 URL 推导：Worker 可能位于 /assets/ 或开发时的 node_modules 路径 */
-function resolveModelUrl(fileName: string): string {
+/**
+ * 解析部署根路径（base path）。
+ *
+ * Worker 在生产构建中位于 `<base>/assets/xxx.js`，
+ * 而模型与 WASM 位于 `<base>/`。
+ * GitHub Pages 部署在子目录（如 `/CW-BY4CWY/`），
+ * 因此不能用 `origin/`，必须从 Worker 路径反推base。
+ *
+ * 与 utils/inference.ts 中 legacy Worker 的处理保持一致。
+ */
+function resolveBasePath(): string {
   const workerPath = self.location.pathname;
   const assetsIndex = workerPath.lastIndexOf("/assets/");
   if (assetsIndex !== -1) {
-    const basePath = workerPath.substring(0, assetsIndex);
-    return `${self.location.origin}${basePath}/${fileName}`;
+    return workerPath.substring(0, assetsIndex);
   }
-  return `${self.location.origin}/${fileName}`;
+  // 开发模式或非标准路径：退回到域名根目录
+  return "";
+}
+
+/** 模型 URL 推导 */
+function resolveModelUrl(fileName: string): string {
+  return `${self.location.origin}${resolveBasePath()}/${fileName}`;
+}
+
+/** 静态资源（WASM）URL 推导 */
+function resolveAssetUrl(fileName: string): string {
+  return `${self.location.origin}${resolveBasePath()}/${fileName}`;
 }
 
 type WorkerRequest =
@@ -67,14 +86,24 @@ let loadPromise: Promise<ort.InferenceSession> | null = null;
 
 /** WPM 估计器在 Worker 内维护（跨多次推理累积） */
 let wpmEstimator: WpmEstimator | null = null;
+/** 上一次推理时窗口的音频时长（秒），用于计算本次新增量 */
+let lastWindowSeconds = 0;
+/** 是否为WPM 统计的首个样本（只建立基线，不计入） */
+let isFirstWpmSample = true;
 
 async function ensureSession(): Promise<ort.InferenceSession> {
   if (session) return session;
   if (loadPromise) return loadPromise;
 
   const promise = (async () => {
-    // WASM 走本地 public/，避免依赖 CDN（离线场景必需）
-    ort.env.wasm.wasmPaths = `${self.location.origin}/`;
+    // WASM 走本地 public/，避免依赖 CDN（离线场景必需）。
+    //
+    // ⚠️ 这里必须用 resolveAssetUrl 而非 `${origin}/`：
+    // GitHub Pages 部署在子目录（如 /CW-BY4CWY/），
+    // 硬编码 origin 会导致 WASM 404，模型加载随之失败。
+    // 这个 bug 在推送前审计中被发现（见 docs/AUDIT_REPORT.md P0-1）。
+    ort.env.wasm.wasmPaths = resolveAssetUrl("");
+
     const created = await ort.InferenceSession.create(
       resolveModelUrl(DEEPCW_MODEL_FILE),
       {
@@ -143,12 +172,28 @@ async function handleRunInference(
 
   const elements = extractQSOElements(decoded.text);
 
-  // WPM 估计：本次音频时长即为该段文本的时长
+  // WPM 估计：滚动窗口下只统计「本次新增的音频」。
+  //
+  // 若直接用 update(text, audioSeconds)，同一段音频会被反复统计，
+  // 实测偏差 40%（详见 docs/AUDIT_REPORT.md P1-1）。
+  // 差值统计后偏差降到 0-4%。
   const audioSeconds = audioBuffer.length / DEEPCW_SAMPLE_RATE;
   if (!wpmEstimator) {
     wpmEstimator = new WpmEstimator({ windowSeconds: Math.round(audioSeconds) });
   }
-  const wpmResult = wpmEstimator.update(decoded.text, audioSeconds);
+
+  // 本次新增的音频时长 = 当前窗口总时长 - 上次窗口总时长。
+  // 首次调用时 lastWindowSeconds 为 0，stepSeconds 也为 0，
+  // 由 updateRolling 的 firstCall 参数保证只建立基线。
+  const stepSeconds = Math.max(0, audioSeconds - lastWindowSeconds);
+  lastWindowSeconds = audioSeconds;
+
+  const wpmResult = wpmEstimator.updateRolling(
+    decoded.text,
+    stepSeconds,
+    isFirstWpmSample,
+  );
+  isFirstWpmSample = false;
 
   return {
     segments: [
@@ -195,11 +240,15 @@ ctx.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         session = null;
         loadPromise = null;
         wpmEstimator = null;
+        lastWindowSeconds = 0;
+        isFirstWpmSample = true;
         respond({ id: message.id, type: "modelUnloaded" });
         return;
       }
       case "resetWpm": {
         wpmEstimator?.reset();
+        lastWindowSeconds = 0;
+        isFirstWpmSample = true;
         respond({ id: message.id, type: "wpmReset" });
         return;
       }

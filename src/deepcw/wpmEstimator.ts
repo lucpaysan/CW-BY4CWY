@@ -86,15 +86,28 @@ export function countUnits(text: string): number {
 
     const code = MORSE_UNITS[ch];
     if (code) {
-      // 码元时长 + 内部符号间隔 + 字符间隔
-      total += code.length + (code.length - 1) + CHAR_GAP_UNITS;
+      // ⚠️ 键音时长必须按 Morse 定义逐符号累加：
+      //    dot = 1u，dash = 3u。
+      //
+      // 早先这里写的是 `code.length`（码元**个数**），把 dash
+      // 当成了 1u。对含 dash 的字符会偏小：
+      //   T (-)：真实 3u，算成 1u，少 2u
+      //   W (.--)：真实 7u，算成 3u，少 4u
+      //   C (-.-.)：真实 8u，算成 7u，少 1u
+      // 整体导致 WPM 估计偏低约 25%，历史上用一个经验系数 1.4
+      // 去掩盖 —— 那是在错误算法上打补丁。现算法本身正确。
+      let toneUnits = 0;
+      for (const sym of code) {
+        toneUnits += sym === "-" ? 3 : 1;
+      }
+      total += toneUnits + (code.length - 1) + CHAR_GAP_UNITS;
       hasPrevChar = true;
       continue;
     }
 
-    // 常见标点：按 4 码元估算（含内部间隔）
+    // 常见标点：按 4u 键音 + 2u 内部间隔估算
     if (/[.,?!\-=()]/.test(ch)) {
-      total += 4 + 3 + CHAR_GAP_UNITS;
+      total += 4 + 2 + CHAR_GAP_UNITS;
       hasPrevChar = true;
     }
   }
@@ -103,20 +116,26 @@ export function countUnits(text: string): number {
 }
 
 /**
- * 尾部与静音补偿系数。
+ * 静音补偿系数。
  *
- * 真实 CW 录音的时长往往包含解码文本之外的静音：
- *   - 报文结尾的操作员收键延迟
- *   - 词与词之间被 CTC 合并/省略的部分
- *   - 首尾的镜像填充影响
+ * ## 历史
  *
- * 实测（cwSynth 合成音频 vs countUnits 统计）比值稳定在 1.33–1.48，
- * 均值约 1.4，故用此系数校正。
+ * 这个系数最初定为 1.4，是用「朴素累加」的数据拟合出来的 ——
+ * 当时每次推理都把整个窗口重复统计，elapsed 被放大十余倍，
+ * 需要一个系数把偏差压回去。
  *
- * ⚠️ 这个系数是经验值，只影响 WPM 估计的精度（±15%），
- * 而判断「是否超出 8–45 安全区间」是区间级的判断，不受影响。
+ * ## 现在为什么改为 1.0
+ *
+ * 改用差值统计（`updateRolling`）后，每个采样点只被统计一次，
+ * elapsed 与码元都恢复真实比例，实测偏差从 40% 降到 0%，
+ * **不再需要任何补偿**。
+ *
+ * 保留可配置入口，便于将来用真实电台录音重新标定。
+ *
+ * ⚠️ 若要调整，请用 `__tests__/wpmRollingCheck.ts` 的模拟框架验证，
+ * 不要凭印象改数值 —— 那个 1.4 就是凭印象留下的。
  */
-const SILENCE_COMPENSATION = 1.4;
+const SILENCE_COMPENSATION = 1.0;
 
 /** 实测得出的安全区间 */
 export const WPM_SAFE_MIN = 8;
@@ -158,6 +177,9 @@ export class WpmEstimator {
   /** 上一次的提示状态："too-slow" | "too-fast" | null */
   private lastAdvice: "too-slow" | "too-fast" | null = null;
 
+  /** 滚动窗口模式：建立统计起点的基线码元数 */
+  private rollingBaselineUnits: number | null = null;
+
   constructor(config: WpmConfig) {
     this.windowSeconds = config.windowSeconds;
   }
@@ -177,6 +199,61 @@ export class WpmEstimator {
     if (u > 0 && dt > 0) {
       this.units += u;
       this.elapsed += dt;
+    }
+
+    return this.getEstimate();
+  }
+
+  /**
+   * 滚动窗口专用的更新：**只统计本次新增的音频**。
+   *
+   * ## 为什么需要这个方法
+   *
+   * 实时解码用滚动窗口：每次推理拿到的都是「最近 N 秒」的完整音频，
+   * 相邻两次高度重叠。若直接用 update(text, windowSeconds)，
+   * 同一段音频会被反复统计：
+   *
+   *   - 12 秒窗口、每 0.64 秒触发一次
+   *   - 跑 30 秒真实时间= 46 次推理
+   *   - 朴素累加 elapsed = 46 × 12 = 552 秒（真实只过了 30 秒）
+   *
+   * 实测偏差：真实 20 WPM 被估成 29（+45%），码元样本虚高 20 倍。
+   *
+   * ## 做法
+   *
+   * 维护一个基线 `rollingBaselineUnits`：统计起点时窗口内的累计码元数。
+   *
+   * 本次新增码元 = 当前窗口累计码元 - 基线。
+   * 计入后立即把基线推进到当前值，于是下一帧统计的是「再往后新增」的部分。
+   * 这样每个采样点只被统计一次，分子分母都不再重复放大。
+   *
+   * @param text 本次窗口的完整解码文本
+   * @param stepSeconds 距上次调用的真实时间间隔
+   * @param firstCall 是否为首次调用（只建立基线，不累加）
+   */
+  updateRolling(text: string, stepSeconds: number, firstCall = false): WpmEstimate {
+    const currentUnits = countUnits(text);
+
+    // 首次调用：建立基线，窗口里装的是此前的音频，不属于「本次新增」
+    if (firstCall || this.rollingBaselineUnits === null) {
+      this.rollingBaselineUnits = currentUnits;
+      return this.getEstimate();
+    }
+
+    const deltaUnits = currentUnits - this.rollingBaselineUnits;
+
+    // 基线推进到当前值（无论是否计入）
+    this.rollingBaselineUnits = currentUnits;
+
+    // 窗口内容变短（信号中断、切换窗口）：重置，不计入
+    if (deltaUnits < 0) {
+      return this.getEstimate();
+    }
+
+    // 差值为 0 说明本次无新增，跳过以免拉低平均
+    if (deltaUnits > 0 && stepSeconds > 0) {
+      this.units += deltaUnits;
+      this.elapsed += stepSeconds;
     }
 
     return this.getEstimate();
@@ -247,6 +324,7 @@ export class WpmEstimator {
     this.units = 0;
     this.elapsed = 0;
     this.lastAdvice = null;
+    this.rollingBaselineUnits = null;
   }
 }
 

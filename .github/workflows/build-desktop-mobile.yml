@@ -34,7 +34,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app
+      - name: Fetch DeepCW model
+        run: bash scripts/fetch-deepcw-model.sh
+        # 模型约 15MB，未纳入版本库（见 .gitignore），
+        # 因此 CI 需从上游 e04/deepcw-engine 下载。
+        # 模型许可：AGPL-3.0-only
+        shell: bash
+
+      - name: Build Tauri app (Windows)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,7 +79,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app
+      - name: Fetch DeepCW model
+        run: bash scripts/fetch-deepcw-model.sh
+        # 模型约 15MB，未纳入版本库（见 .gitignore）
+        # 模型许可：AGPL-3.0-only
+
+      - name: Build Tauri app (Android)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

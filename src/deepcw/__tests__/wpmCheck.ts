@@ -29,17 +29,18 @@ console.log("=== 1. 码元统计正确性 ===");
 {
   // 已知码元：E=1, T=1, A=2, N=2, C=4
   check("E = 1 码元 + 3 间隔 = 4", countUnits("E") === 4, String(countUnits("E")));
-  check("A = 2码元+1间隔+3 = 6", countUnits("A") === 6, String(countUnits("A")));
+  check("A = dash3u+dot1u+间隔1u+字距3u = 8", countUnits("A") === 8, String(countUnits("A")));
   check("EE = 8", countUnits("EE") === 8, String(countUnits("EE")));
 
   // "CQ" : C(4+3) + Q(4+3) = 14
-  check("CQ = 20（C=8 + Q=10）", countUnits("CQ") === 20, String(countUnits("CQ")));
+  check("CQ = 30（C键音8+3+3=14, Q键音10+3+3=16）", countUnits("CQ") === 30, String(countUnits("CQ")));
 
   // 带空格：CQ + 空(7-3=4额外) + DE
   const spaced = countUnits("CQ DE");
   // C(8) + 空格补(4) + D(8) + E(4) = 24
-  const expected = 36;  // CQ(20)+空格(4)+D(8)+E(4)
-  check("CQ DE = 36", spaced === expected, `${spaced}，期望 ${expected}`);
+  // CQ(30) + 空格补4 + D(10) + E(4) = 48
+  const expected = 48;
+  check("CQ DE = 48", spaced === expected, `${spaced}，期望 ${expected}`);
 
   console.log(`  参考：CQ DE BY4CWY = ${countUnits("CQ DE BY4CWY")} 码元`);
 }

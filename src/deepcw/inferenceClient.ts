@@ -126,6 +126,30 @@ export async function unloadDeepCWModel(): Promise<void> {
   loadPromise = null;
 }
 
+/**
+ * 完全销毁 Worker，释放模型占用的内存。
+ *
+ * ## 为什么需要
+ *
+ * Worker 里常驻着 14MB 的 ONNX 模型。原先没有任何地方 terminate，
+ * 导致：
+ *   - 切换标签页（DECODE → ENCODE）时Worker 仍在后台
+ *   - 切换引擎（DeepCW → Legacy → DeepCW）时旧 Worker 依然存活
+ *   - 反复切换可能累积多个 Worker 实例
+ *
+ * 组件卸载时调用即可。下次需要时会自动重建（并重新加载模型）。
+ */
+export function terminateDeepCWWorker(): void {
+  if (worker) {
+    worker.terminate();
+    worker = null;
+  }
+  loadPromise = null;
+  crashCount = 0;
+  // 清空在途请求的引用，避免内存泄漏
+  pending.clear();
+}
+
 /** 重置 WPM 估计状态（切换解码窗口时调用） */
 export async function resetDeepCWWpm(): Promise<void> {
   try {

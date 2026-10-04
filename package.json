@@ -15,7 +15,8 @@
     "test:reseg": "esbuild src/deepcw/__tests__/resegCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-reseg.mjs --log-level=error && node node_modules/.cache/deepcw-reseg.mjs",
     "test:wpm": "esbuild src/deepcw/__tests__/wpmCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-wpm.mjs --log-level=error && node node_modules/.cache/deepcw-wpm.mjs",
     "test:deepcw:e2e": "esbuild src/deepcw/__tests__/e2eExport.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-e2e-export.mjs --log-level=error && node node_modules/.cache/deepcw-e2e-export.mjs /tmp/deepcw_e2e",
-    "test:arb": "esbuild src/engines/__tests__/arbitrationCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/engine-arb.mjs --log-level=error && node node_modules/.cache/engine-arb.mjs"
+    "test:arb": "esbuild src/engines/__tests__/arbitrationCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/engine-arb.mjs --log-level=error && node node_modules/.cache/engine-arb.mjs",
+    "test:wpm-rolling": "esbuild src/deepcw/__tests__/wpmRollingCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-wpm-rolling.mjs --log-level=error && node node_modules/.cache/deepcw-wpm-rolling.mjs"
   },
   "dependencies": {
     "@mantine/core": "^8.2.7",

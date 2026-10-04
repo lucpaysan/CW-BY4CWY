@@ -34,8 +34,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Fetch DeepCW model
+        run: bash scripts/fetch-deepcw-model.sh
+        # 模型约 15MB，未纳入版本库（见 .gitignore），
+        # 因此 CI 需从上游 e04/deepcw-engine 下载。
+        # 模型许可：AGPL-3.0-only
+
       - name: Build
         run: npm run build
+
+      - name: Verify build output
+        run: |
+          set -euo pipefail
+          test -f dist/model_deepcw.onnx || { echo "::error::模型缺失"; exit 1; }
+          test -f dist/model_deepcw.json || { echo "::error::元数据缺失"; exit 1; }
+          echo "dist 体积: $(du -sh dist | cut -f1)"
+          ls -la dist/*.onnx dist/*.json
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

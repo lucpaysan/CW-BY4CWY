@@ -5,6 +5,7 @@ import {
   loadDeepCWModel,
   runDeepCWInference,
   resetDeepCWWpm,
+  terminateDeepCWWorker,
   getDeepCWCrashCount,
 } from "./deepcw/inferenceClient";
 import type { DeepCWSegment } from "./workers/deepcwWorker";
@@ -68,10 +69,20 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
     };
   }, []);
 
+  // 卸载时终止 Worker，释放 14MB 模型内存。
+  // 否则切换标签页或引擎时旧 Worker 仍在后台常驻。
+  useEffect(() => {
+    return () => {
+      terminateDeepCWWorker();
+    };
+  }, []);
+
   // 切换窗口时清空，并重置 WPM 估计
   useEffect(() => {
     setSegments([]);
     setLastVersion(-1);
+    setWpm(null);
+    setWpmOutOfRange(false);
     void resetDeepCWWpm();
   }, [windowSeconds]);
 
@@ -181,6 +192,7 @@ export const DeepCWPanel = ({ stream }: DeepCWPanelProps) => {
 
         <Text size="xs" c="dimmed">
           音频采样率 {DEEPCW_SAMPLE_RATE} Hz · 频带 400–1200 Hz
+          {windowSeconds >= 30 && " · 30 秒窗口推理约 830ms，CPU 负载较高"}
           {" · "}
           <span title="DeepCW 模型由 e04/deepcw-engine 提供，采用 AGPL-3.0-only 许可">
             模型 DeepCW (AGPL-3.0)
