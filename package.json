@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "test:deepcw": "esbuild src/deepcw/__tests__/selfCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-selfcheck.mjs --log-level=error && node node_modules/.cache/deepcw-selfcheck.mjs",
+    "test:deepcw:e2e": "esbuild src/deepcw/__tests__/e2eExport.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-e2e-export.mjs --log-level=error && node node_modules/.cache/deepcw-e2e-export.mjs /tmp/deepcw_e2e"
   },
   "dependencies": {
     "@mantine/core": "^8.2.7",

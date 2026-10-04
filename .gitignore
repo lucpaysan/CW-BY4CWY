@@ -22,3 +22,7 @@ node_modules
 *.sw?
 
 /dist
+
+# DeepCW 模型（约 15MB，来自 e04/deepcw-engine，AGPL-3.0）
+# 不进版本库，改由 scripts/fetch-deepcw-model.sh 下载
+public/model_deepcw.onnx

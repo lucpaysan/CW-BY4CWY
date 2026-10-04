@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CW DeepCW 独立测试页</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #14161a;
+        color: #e8e8e8;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+      }
+      .wrap { max-width: 1000px; margin: 0 auto; }
+      h1 { font-size: 20px; font-weight: 500; margin: 0 0 6px; }
+      .sub { font-size: 13px; color: #8a8f98; margin-bottom: 20px; line-height: 1.6; }
+      .card {
+        background: #1c1f24;
+        border: 1px solid #2a2e35;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      button {
+        padding: 10px 22px;
+        border-radius: 24px;
+        border: none;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #fff;
+        background: linear-gradient(135deg, #b69e64, #9a8450);
+        min-width: 130px;
+      }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.stop { background: linear-gradient(135deg, #c45c5c, #a84848); }
+      select {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid #2a2e35;
+        background: #23262c;
+        color: #e8e8e8;
+        font-size: 13px;
+      }
+      label { font-size: 12px; color: #8a8f98; display: block; margin-bottom: 4px; }
+      .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        background: #262a31;
+        color: #a8adb5;
+        margin-right: 6px;
+      }
+      .badge.on { background: #1e3a32; color: #6fd3b0; }
+      .badge.err { background: #3a1e1e; color: #e08a8a; }
+      .out {
+        background: #101215;
+        border-radius: 8px;
+        padding: 18px;
+        min-height: 130px;
+        max-height: 340px;
+        overflow-y: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 20px;
+        line-height: 1.65;
+        color: #e8d9a8;
+        word-break: break-word;
+      }
+      .meta { font-size: 12px; color: #6b7079; margin-top: 10px; }
+      .hint {
+        background: #1e2024;
+        border-left: 3px solid #b69e64;
+        padding: 12px 14px;
+        border-radius: 0 8px 8px 0;
+        font-size: 12px;
+        color: #a0a5ad;
+        line-height: 1.7;
+      }
+      code {
+        background: #262a31;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>CW DeepCW 独立测试页</h1>
+      <div class="sub">
+        验证 DeepCW 模型在浏览器中的实时解码链路。频带 400–1200 Hz（对应短波 CW 的600/700Hz 基频），
+        采样率 3200 Hz。解码结果为英文与数字。
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom: 16px">
+          <div>
+            <label>音频输入设备</label>
+            <select id="devices"><option>尚未授权</option></select>
+          </div>
+          <div>
+            <label>解码窗口</label>
+            <select id="window">
+              <option value="6">6 秒</option>
+              <option value="12" selected>12 秒</option>
+              <option value="18">18 秒</option>
+              <option value="30">30 秒</option>
+            </select>
+          </div>
+          <div>
+            <label>增益</label>
+            <select id="gain">
+              <option value="0" selected>0 dB</option>
+              <option value="10">+10 dB</option>
+              <option value="20">+20 dB</option>
+              <option value="30">+30 dB</option>
+            </select>
+          </div>
+          <div style="align-self: flex-end">
+            <button id="mic">获取麦克风</button>
+          </div>
+          <div style="align-self: flex-end">
+            <button id="toggle" disabled>▶ 启动解码</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px">
+          <span class="badge" id="s-model">模型加载中…</span>
+          <span class="badge" id="s-mic">未连接音频</span>
+          <span class="badge" id="s-run">空闲</span>
+          <span class="badge" id="s-snr">SNR —</span>
+          <span class="badge" id="s-conf">置信度 —</span>
+        </div>
+
+        <div class="out" id="out">点击「获取麦克风」授权后启动解码</div>
+        <div class="meta" id="meta"></div>
+      </div>
+
+      <div class="card">
+        <div class="hint">
+          <strong style="color:#e8d9a8">使用说明</strong><br />
+          · 这是绕过 React 主应用的独立测试页，可直接验证 DeepCW 链路是否通畅<br />
+          · 需要把短波电台的音频输出接到电脑声卡，再用此页选择该输入设备<br />
+          · 单字母（E、T 等短至0.5 秒以下）可能解不出，这是模型的设计限制；
+          通联场景使用 6 秒以上滚动窗口即可<br />
+          · 缩写会自动还原：<code>AR</code> <code>SK</code> <code>KN</code>，
+          数字混淆会纠正（<code>OS</code> → <code>73</code>）
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as ort from "/node_modules/onnxruntime-web/dist/ort.bundle.min.mjs";
+      import { audioToDeepCWSpectrogram } from "/src/deepcw/spectrogram.ts";
+      import { greedyCTCDecode } from "/src/deepcw/ctcDecoder.ts";
+      import { extractQSOElements } from "/src/deepcw/abbrevExpander.ts";
+      import {
+        DEEPCW_MODEL_FILE,
+        DEEPCW_INPUT_NAME,
+        DEEPCW_OUTPUT_NAME,
+        DEEPCW_SAMPLE_RATE,
+      } from "/src/deepcw/config.ts";
+
+      const $ = (id) => document.getElementById(id);
+      const out = $("out");
+
+      let session = null;
+      let stream = null;
+      let audioCtx = null;
+      let running = false;
+      let proc = null;
+      let gainNode = null;
+      let samples = new Float32Array(12 * DEEPCW_SAMPLE_RATE);
+      let version = 0;
+      let lastVersion = -1;
+
+      // 加载模型
+      (async () => {
+        try {
+          ort.env.wasm.wasmPaths = "/ort-wasm-simd-threaded.wasm";
+          $("s-model").textContent = "模型加载中…";
+          session = await ort.InferenceSession.create(`/${DEEPCW_MODEL_FILE}`, {
+            executionProviders: ["wasm", "cpu"],
+          });
+          $("s-model").textContent = "DeepCW 就绪";
+          $("s-model").className = "badge on";
+        } catch (e) {
+          $("s-model").textContent = "模型加载失败：" + e.message;
+          $("s-model").className = "badge err";
+        }
+      })();
+
+      // 麦克风
+      $("mic").onclick = async () => {
+        if (stream) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = null;
+          $("s-mic").textContent = "未连接音频";
+          $("s-mic").className = "badge";
+          $("toggle").disabled = true;
+          return;
+        }
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              channelCount: 1,
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+          });
+          $("s-mic").textContent = "音频已连接";
+          $("s-mic").className = "badge on";
+          $("toggle").disabled = false;
+
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const sel = $("devices");
+          sel.innerHTML = "";
+          devs
+            .filter((d) => d.kind === "audioinput")
+            .forEach((d, i) => {
+              const o = document.createElement("option");
+              o.value = d.deviceId;
+              o.textContent = d.label || `输入 ${i + 1}`;
+              sel.appendChild(o);
+            });
+        } catch (e) {
+          $("s-mic").textContent = "麦克风失败：" + e.message;
+          $("s-mic").className = "badge err";
+        }
+      };
+
+      // 切换设备
+      $("devices").onchange = async (e) => {
+        const id = e.target.value;
+        if (!id) return;
+        stream.getTracks().forEach((t) => t.stop());
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: { exact: id },
+            channelCount: 1,
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        });
+        restart();
+      };
+
+      function restart() {
+        if (running) {
+          stopAudio();
+          startAudio();
+        }
+      }
+
+      function startAudio() {
+        audioCtx = new AudioContext({ sampleRate: DEEPCW_SAMPLE_RATE });
+        const src = audioCtx.createMediaStreamSource(stream);
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = Math.pow(10, Number($("gain").value) / 20);
+
+        proc = audioCtx.createScriptProcessor(2048, 1, 1);
+        proc.onaudioprocess = (ev) => {
+          const chunk = ev.inputBuffer.getChannelData(0);
+          const tail = samples.length - chunk.length;
+          if (tail > 0) samples.copyWithin(0, chunk.length);
+          samples.set(chunk, samples.length - chunk.length);
+          version++;
+        };
+
+        src.connect(gainNode);
+        gainNode.connect(proc);
+        proc.connect(audioCtx.destination);
+      }
+
+      function stopAudio() {
+        if (proc) { proc.disconnect(); proc = null; }
+        if (gainNode) { gainNode.disconnect(); gainNode = null; }
+        if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      }
+
+      $("window").onchange = (e) => {
+        const secs = Number(e.target.value);
+        samples = new Float32Array(secs * DEEPCW_SAMPLE_RATE);
+        lastVersion = -1;
+      };
+
+      $("toggle").onclick = () => {
+        running = !running;
+        const btn = $("toggle");
+        if (running) {
+          btn.textContent = "■ 停止";
+          btn.className = "stop";
+          $("s-run").textContent = "解码中";
+          $("s-run").className = "badge on";
+          startAudio();
+          loop();
+        } else {
+          btn.textContent = "▶ 启动解码";
+          btn.className = "";
+          $("s-run").textContent = "空闲";
+          $("s-run").className = "badge";
+          stopAudio();
+        }
+      };
+
+      async function loop() {
+        while (running) {
+          if (version !== lastVersion && session) {
+            lastVersion = version;
+            const snap = samples.slice();
+            try {
+              const spec = audioToDeepCWSpectrogram(snap);
+              if (spec) {
+                const t0 = performance.now();
+                const res = await session.run({
+                  [DEEPCW_INPUT_NAME]: new ort.Tensor("float32", spec.data, spec.dims),
+                });
+                const dt = Math.round(performance.now() - t0);
+                const decoded = greedyCTCDecode(
+                  res[DEEPCW_OUTPUT_NAME].data,
+                  res[DEEPCW_OUTPUT_NAME].dims,
+                );
+                render(decoded, spec.timeSteps, dt);
+              }
+            } catch (e) {
+              out.textContent = "推理错误：" + e.message;
+            }
+          }
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
+
+      function render(decoded, frames, ms) {
+        const text = decoded.text.trim();
+        if (!text) {
+          out.innerHTML = '<span style="color:#6b7079;font-size:14px">等待信号…</span>';
+          $("meta").textContent = "";
+          return;
+        }
+        const el = extractQSOElements(text);
+        const badges = [
+          ...el.callsigns.map((c) => `<span class="badge on">呼号 ${c}</span>`),
+          ...el.reports.map((r) => `<span class="badge on">信号 ${r}</span>`),
+          ...el.qcodes.map((q) => `<span class="badge">${q}</span>`),
+        ].join("");
+        out.innerHTML = text + (badges ? "<div style='margin-top:10px'>" + badges + "</div>" : "");
+        $("meta").textContent =
+          `帧数 ${frames} · 推理 ${ms}ms · 置信度 ${(decoded.confidence * 100).toFixed(0)}%` +
+          (decoded.raw !== decoded.text ? ` · 原始：${decoded.raw}` : "");
+        if (decoded.confidence > 0) {
+          $("s-conf").textContent = "置信度 " + (decoded.confidence * 100).toFixed(0) + "%";
+        }
+      }
+    </script>
+  </body>
+</html>
