@@ -41,8 +41,12 @@ type BigramTable = Map<string, number>;
  * 这些若不在词表里，重切分时会被切碎（如 SHANGHAI -> S|HA|NG|HA|I）。
  */
 const HIGH_FREQ_WORDS: string[] = [
-  // 呼号结构片段
-  "BY", "4C", "CW", "WY", "DE", "Q", "R",
+  // ⚠️ 不要收录呼号碎片（BY/4C/WY 等）：
+  //    它们会作为「词表词」拿到 isAtomic 的 +40 加成，
+  //    主动鼓励 DP 把 BY4CWY 切成 BY|4C|WY —— 曾是
+  //    「粘连串内嵌呼号被切碎」缺陷的帮凶。
+  //    呼号保护现由 DP 的 span 级机制负责（见 findBestSegmentation）。
+  "DE", "Q", "R",
   // Q 码
   "QSL", "QTH", "QRS", "QRZ", "QSO", "RST", "QRM", "QRP", "QRT", "QRV",
   "QRU", "QRK", "QRL", "QSA", "QSQ", "QSY", "QSP", "QRO", "QRQ", "QRV",
@@ -370,6 +374,25 @@ function findBestSegmentation(
   const n = seg.length;
   const upper = seg.toUpperCase();
 
+  // ---- 呼号 span 保护（修复「内嵌呼号被切碎」缺陷）----
+  //
+  // 先在整段上无边界地找出所有呼号形态的 span（如
+  // BY4CWYDEBG1ABC → [0,6)"BY4CWY"、[8,14)"BG1ABC"），
+  // 再在 DP 打分时：
+  //   - token **恰好覆盖**某个 span → 重奖（且不受长度惩罚稀释）
+  //   - token 与某个 span 部分重叠（从中间切碎 / 跨越边界）→ 重罚
+  //
+  // ⚠️ 早先只有「整段 isAtomic」检查，DP 内部的候选子串没有保护，
+  //    BY4CWYDEBG1ABC 被切成 BY 4C WY DE BG 1AB C。
+  //    另一个帮凶是词表里收录过 BY/4C/WY 等呼号碎片（已移除）。
+  const callsignSpans: Array<[number, number]> = [];
+  const spanRe = /[A-Z]{1,2}\d[A-Z]{1,3}/g;
+  let sm: RegExpExecArray | null;
+  while ((sm = spanRe.exec(upper))) {
+    callsignSpans.push([sm.index, sm.index + sm[0].length]);
+  }
+  const hasCallsignSpan = callsignSpans.length > 0;
+
   // dp[i]: 前 i 字符的最优总得分
   const dp = new Array<number>(n + 1).fill(-Infinity);
   // prev[i]: 最优解中，位置 i 之前的切点
@@ -423,9 +446,27 @@ function findBestSegmentation(
       const len = i - j;
       const lengthPenalty =
         len === 1 ? 0.35 : len === 2 ? 1.0 : len === 3 ? 1.1 : len <= 4 ? 1.0 : len === 5 ? 0.8 : 0.5;
-      tokenScore *= lengthPenalty;
+      let total = dp[j] + tokenScore * lengthPenalty;
 
-      const total = dp[j] + tokenScore;
+      // 呼号 span 保护：加在长度惩罚**之后**，不被稀释。
+      //   恰好覆盖 span → 重奖（完整呼号是通联信息里最不能碎的）
+      //   部分重叠 span → 重罚（从呼号中间切开 = 信息报废）
+      if (hasCallsignSpan) {
+        let covers = false;
+        let overlaps = false;
+        for (const [s, e] of callsignSpans) {
+          if (j === s && i === e) {
+            covers = true;
+            break;
+          }
+          if (j < e && i > s) {
+            overlaps = true;
+          }
+        }
+        if (covers) total += 60;
+        else if (overlaps) total -= 20;
+      }
+
       if (total > dp[i]) {
         dp[i] = total;
         prev[i] = j;

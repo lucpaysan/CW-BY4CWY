@@ -83,9 +83,15 @@ export class GoertzelFilter {
   }
 
   computeMagnitude(): number {
-    const real = this.sPrev * this.coefficient * 0.5 - this.sPrev2;
-    const imag = this.sPrev * Math.sin(this.coefficient / 2);
-    return real * real + imag * imag;
+    // 标准 Goertzel 功率公式：power = s1² + s2² − coeff·s1·s2
+    //
+    // ⚠️ 早先写成 `sPrev * Math.sin(this.coefficient / 2)` ——
+    //    coefficient 是 2cos(ω)，coefficient/2 = cos(ω)，
+    //    对它求 sin 是无意义的（幅度失真，isDetected 判据不可靠）。
+    //    这个公式完全不需要 sin 项。
+    const s1 = this.sPrev;
+    const s2 = this.sPrev2;
+    return s1 * s1 + s2 * s2 - this.coefficient * s1 * s2;
   }
 
   getResult(threshold: number = 0.0): GoertzelResult {

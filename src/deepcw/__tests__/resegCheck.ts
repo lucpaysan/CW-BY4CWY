@@ -35,6 +35,33 @@ console.log("=== 1. 实测粘连样本（来自 Q2 极端实验）===");
   }
 }
 
+console.log("\n=== 1b. 内嵌呼号保护（DP span 级）===");
+{
+  // 曾被切成 BY | 4C | WY | DE | BG | 1AB | C —— 呼号报废。
+  // 修复后呼号 span 必须整体保留，中间的 DE 由语法加分切出。
+  const glued = resegment("BY4CWYDEBG1ABC");
+  console.log(`  BY4CWYDEBG1ABC -> ${glued.tokens.join(" | ")}`);
+  check(
+    "BY4CWY 保持完整",
+    glued.tokens.includes("BY4CWY"),
+    `实际 ${glued.tokens.join("|")}`,
+  );
+  check(
+    "BG1ABC 保持完整",
+    glued.tokens.includes("BG1ABC"),
+    `实际 ${glued.tokens.join("|")}`,
+  );
+
+  // 单个呼号被 DP 处理时（如带前缀噪声）也不碎
+  const one = resegment("XXBY4CWY");
+  console.log(`  XXBY4CWY -> ${one.tokens.join(" | ")}`);
+  check(
+    "带前缀噪声时 BY4CWY 仍完整",
+    one.tokens.includes("BY4CWY"),
+    `实际 ${one.tokens.join("|")}`,
+  );
+}
+
 console.log("\n=== 2. 不能破坏已正确的文本 ===");
 {
   const correct = [

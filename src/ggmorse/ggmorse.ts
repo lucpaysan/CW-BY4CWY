@@ -39,6 +39,11 @@ const DEFAULT_CONFIG = {
   toneOnThreshold: 500,
 };
 
+/** 监测信道中心频率（Goertzel 单频检测的目标） */
+function centerFrequency(minHz: number, maxHz: number): number {
+  return Math.round((minHz + maxHz) / 2);
+}
+
 export class GGMorse {
   private config: Required<GGMorseConfig>;
   private goertzelFilter: GoertzelFilter;
@@ -49,6 +54,7 @@ export class GGMorse {
   private toneOnsetSample: number = 0;
   private sampleCount: number = 0;
   private recentFrequencies: number[] = [];
+  private recentToneDurations: number[] = [];
   private wpmEstimate: number = 20;
   private decodedText: string = "";
   private onTextCallback?: (text: string) => void;
@@ -57,8 +63,12 @@ export class GGMorse {
   constructor(config: GGMorseConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
 
-    const centerFreq = (this.config.minFrequency + this.config.maxFrequency) / 2;
-    const windowSize = Math.round(this.config.sampleRate / 10);
+    const centerFreq = centerFrequency(this.config.minFrequency, this.config.maxFrequency);
+    // 分析窗 ≈ 15.6ms（fs/64）。
+    // ⚠️ 早先用 fs/10 = 100ms：20 WPM 的 dot 只有 60ms，被量化膨胀
+    //    成 1.5~3 倍（实测 94ms），点/划阈值与间隔判定全部失真。
+    //    15.6ms 分辨率下 dot 膨胀 ≤1.3×，间隔判定可用。
+    const windowSize = Math.round(this.config.sampleRate / 64);
 
     this.goertzelFilter = new GoertzelFilter({
       sampleRate: this.config.sampleRate,
@@ -83,7 +93,13 @@ export class GGMorse {
       this.goertzelFilter.processSample(samples[i]);
       this.sampleCount++;
 
-      if (this.goertzelFilter.isWindowComplete() && i === samples.length - 1) {
+      // ⚠️ 窗口一完成就处理，不要等「到达本批最后一个采样点」。
+      //
+      // 早先写成 `isWindowComplete() && i === samples.length - 1`：
+      // 以 2048 采样/批、窗口 320 采样为例，窗口在第 319/639/959/…
+      // 个采样完成，全都对不上 2047 —— **processWindow 永远不触发**，
+      // 这是 DSP 模式解不出任何字符的第一根因。
+      if (this.goertzelFilter.isWindowComplete()) {
         this.processWindow();
       }
     }
@@ -96,6 +112,12 @@ export class GGMorse {
     if (result.isDetected && !this.isToneActive) {
       this.isToneActive = true;
       this.toneOnsetSample = this.sampleCount - this.goertzelFilter.currentSampleCount;
+      // 上报的频率 = 当前监测信道（min/max 的几何中心）。
+      // 早先该字段从未被赋值，结果里永远是 null。
+      this.currentFrequency = centerFrequency(
+        this.config.minFrequency,
+        this.config.maxFrequency,
+      );
       this.morseDecoder.processTone(true, this.sampleCount);
 
       if (this.onToneCallback) {
@@ -131,14 +153,30 @@ export class GGMorse {
   }
 
   private updateWpmEstimate(toneDuration: number): void {
-    if (toneDuration > 0) {
-      const unitMs = toneDuration / this.config.sampleRate * 1000;
+    // 用「最近若干个音里最短的」近似 dot 时长反推 WPM。
+    //
+    // ⚠️ 早先假设每个刚结束的音都是 dot（WPM = 1200/unitMs）：
+    //    对 dash 会低估 3 倍，导致解码时序跟着漂移。
+    //    取最短值对「至少出现过一次 dot」的流是稳定的；
+    //    20ms 下限防止瞬时毛刺把 WPM 拉爆。
+    this.recentToneDurations.push(toneDuration);
+    if (this.recentToneDurations.length > 8) {
+      this.recentToneDurations.shift();
+    }
+
+    const shortest = Math.min(...this.recentToneDurations);
+    const floorSamples = Math.round(this.config.sampleRate * 0.02);
+    const unitMs = (Math.max(shortest, floorSamples) / this.config.sampleRate) * 1000;
+
+    if (unitMs > 0) {
       const estimatedWpm = Math.round(1200 / unitMs);
       this.wpmEstimate = Math.max(
         this.config.minWpm,
         Math.min(this.config.maxWpm, estimatedWpm)
       );
-      this.morseDecoder.updateTiming(this.wpmEstimate);
+      // ⚠️ 不要把 WPM 回灌给 morseDecoder（updateTiming）：
+      //    反馈回路曾在「首个音是 dash」时把 WPM 低估 3 倍，
+      //    污染后续所有分类。解码器现已基于观测时长自校准。
     }
   }
 
@@ -169,6 +207,7 @@ export class GGMorse {
     this.toneOnsetSample = 0;
     this.sampleCount = 0;
     this.recentFrequencies = [];
+    this.recentToneDurations = [];
     this.decodedText = "";
   }
 

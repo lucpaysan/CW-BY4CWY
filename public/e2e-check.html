@@ -18,16 +18,17 @@ const out = document.getElementById("out");
 const log = (s) => { out.textContent += "\n" + s; out.scrollTop = 1e9; };
 const FS = 3200;
 
-/** 动态定位构建后的 worker 文件名（其哈希会随构建变化，不能硬编码） */
+/** 动态定位构建后的 worker 文件名（其哈希会随构建变化，不能硬编码）。
+ *  全程用相对路径，适配 GitHub Pages 子目录部署。 */
 async function findWorkerUrl() {
-  const html = await (await fetch("/index.html")).text();
+  const html = await (await fetch("index.html")).text();
   // 入口脚本引用可能是 "./assets/..."（相对）或 "/assets/..."（绝对）
   const entry = html.match(/src="\.?\/?(assets\/index-[A-Za-z0-9_-]+\.js)"/);
   if (!entry) throw new Error("未找到入口脚本，无法定位 worker");
-  const js = await (await fetch("/" + entry[1])).text();
+  const js = await (await fetch(entry[1])).text();
   const m = js.match(/deepcwWorker-[A-Za-z0-9_-]+\.js/);
   if (!m) throw new Error("入口脚本中未找到 deepcwWorker 引用");
-  return "/assets/" + m[0];
+  return "assets/" + m[0];
 }
 
 const MORSE = { A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--..","0":"-----","1":".----","2":"..---","3":"...--","4":"....-","5":".....","6":"-....","7":"--...","8":"---..","9":"----." };

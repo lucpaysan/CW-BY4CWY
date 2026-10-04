@@ -8,25 +8,12 @@ import {
   type SignalQualityMetrics,
 } from "../utils/signalQuality";
 import { ENGLISH_CONFIG } from "../const";
+import { resolveAssetUrl } from "../utils/assetBase";
 
-// Derive model URL from the worker's browser URL (self.location.pathname).
-// In dev: worker at /node_modules/.vite/deps/.../inferenceWorker.js or /src/workers/...
-// In prod: worker at /assets/inferenceWorker-xxx.js
-// We need the web-accessible base path, not the Vite-processed module URL.
-let MODEL_URL: string;
-const WORKER_PATH = self.location.pathname;
-const ASSETS_MARKER = "/assets/";
-const assetsIndex = WORKER_PATH.lastIndexOf(ASSETS_MARKER);
-if (assetsIndex !== -1) {
-  // Worker is at /<base>/assets/inferenceWorker-xxx.js — go up one level
-  const basePath = WORKER_PATH.substring(0, assetsIndex);
-  MODEL_URL = `${self.location.origin}${basePath}/${ENGLISH_CONFIG.MODEL_FILE}`;
-} else {
-  // Worker is NOT under /assets/ (e.g. dev mode node_modules path).
-  // Use origin + public path as fallback — in both dev and prod,
-  // Vite serves public/ files at the origin root.
-  MODEL_URL = `${self.location.origin}/${ENGLISH_CONFIG.MODEL_FILE}`;
-}
+// Derive model URL from the worker's browser URL (see utils/assetBase.ts).
+// In dev: worker at /node_modules/.vite/deps/... or /src/workers/... → origin root
+// In prod: worker at /<base>/assets/inferenceWorker-xxx.js → <base>/
+const MODEL_URL = resolveAssetUrl(ENGLISH_CONFIG.MODEL_FILE);
 
 type WorkerRequest =
   | { id: number; type: "loadModel" }
@@ -52,10 +39,13 @@ let session: ort.InferenceSession | null = null;
 
 async function ensureSession(): Promise<ort.InferenceSession> {
   if (session) return session;
-  // Serve WASM files locally from public/ (avoids CDN dependency)
-  // In dev: http://localhost:PORT/ort-wasm-simd-threaded.wasm
-  // In prod: served from same origin as the app
-  ort.env.wasm.wasmPaths = `${self.location.origin}/`;
+  // Serve WASM files locally from public/ (avoids CDN dependency).
+  //
+  // ⚠️ 不能硬编码 `${origin}/`：GitHub Pages 部署在子目录
+  // （如 /CW-BY4CWY/）时该路径 404，模型加载随之失败。
+  // 必须从 Worker 自身路径反推 base（与 deepcwWorker 一致，
+  // 见 docs/AUDIT_REPORT_3.md 对 legacy Worker 的同款缺陷修复）。
+  ort.env.wasm.wasmPaths = resolveAssetUrl("");
   session = await ort.InferenceSession.create(MODEL_URL, {
     executionProviders: ["wasm", "webgl", "cpu"],
   });

@@ -17,31 +17,7 @@ import {
   DEEPCW_SAMPLE_RATE,
 } from "../deepcw/config";
 import { estimateSNR } from "../utils/signalQuality";
-
-/**
- * 解析部署根路径（base path）。
- *
- * Worker 在生产构建中位于 `<base>/assets/xxx.js`，
- * 而模型与 WASM 位于 `<base>/`。
- * GitHub Pages 部署在子目录（如 `/CW-BY4CWY/`），
- * 因此不能用 `origin/`，必须从 Worker 路径反推base。
- *
- * 与 utils/inference.ts 中 legacy Worker 的处理保持一致。
- */
-function resolveBasePath(): string {
-  const workerPath = self.location.pathname;
-  const assetsIndex = workerPath.lastIndexOf("/assets/");
-  if (assetsIndex !== -1) {
-    return workerPath.substring(0, assetsIndex);
-  }
-  // 开发模式或非标准路径：退回到域名根目录
-  return "";
-}
-
-/** 部署根路径下的资源 URL 推导（模型与 WASM 都位于 <base>/ 下） */
-function resolveAssetUrl(fileName: string): string {
-  return `${self.location.origin}${resolveBasePath()}/${fileName}`;
-}
+import { resolveAssetUrl } from "../utils/assetBase";
 
 type WorkerRequest =
   | { id: number; type: "loadModel" }
