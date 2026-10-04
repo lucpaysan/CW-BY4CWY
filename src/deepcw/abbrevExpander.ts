@@ -26,11 +26,11 @@ const PROSIGNS: Record<string, string> = {
  * 只在「整个词就是这些字符」时才替换，避免误伤正常文本。
  */
 const DIGIT_FIXES: { re: RegExp; to: string }[] = [
-  // 7 和 3 常被听成 O / S / D
+  // 7 和 3 常被听成 O / S / D —— RST 结尾最常见的误识
   { re: /^(O5|OS|DS|D5|QT|OZ|DZ)$/, to: "73" },
-  { re: /^(SO|SO|5O)$/, to: "50" },
-  { re: /^(B8|BQ)$/, to: "BQ" },
-  // 599 / 579 / 529 等RST 常见误听
+  // 5 与 0 形近
+  { re: /^(SO|5O)$/, to: "50" },
+  // 599 / 579 等 RST 常见误听
   { re: /^(SO9|509|5O9)$/, to: "599" },
 ];
 

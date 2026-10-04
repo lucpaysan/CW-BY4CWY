@@ -121,13 +121,31 @@ npm run dev
 ### 测试
 
 ```bash
-npm run test:deepcw    # 频谱预处理、CTC 解码（34 项）
+npm test               # 依次跑全部 6 套（140 项）
+
+npm run test:deepcw    # 频谱预处理、CTC 解码、边界回归（34 项）
 npm run test:reseg     # 连读重切分（21 项）
-npm run test:wpm       # WPM 估计（32 项）
-npm run test:arb       # 引擎仲裁（30 项）
+npm run test:wpm       # WPM 离线路径 + countUnits（32 项）
+npm run test:wpm-rolling # WPM 实时路径：瞬时估计 + EMA（15 项）
+npm run test:wpm-worker  # 生产调用模式回归守卫（8 项）
+npm run test:arb       # 引擎仲裁（30 项，仅测试引用该模块）
 ```
 
-全部 117 项测试均基于真实合成音频，非编造数据。
+测试数据来源需区分：`test:deepcw` / `test:wpm` / `test:reseg` 使用
+`cwSynth` 合成的**真实音频**；`test:wpm-rolling` / `test:wpm-worker`
+使用按码元密度构造的**合成文本**模拟滚动窗口（目的是复刻生产调用
+模式，不验证音频链路）。
+
+### 端到端自检（部署后建议先跑这个）
+
+浏览器打开 `**/e2e-check.html`（随构建产物一起发布），
+页面会在页面内合成 CW 音频、驱动真实的 Worker + ONNX 模型，
+输出解码文本、WPM 读数与推理耗时。用于快速确认某台设备上
+引擎可正常加载与解码——社团现场换机器时很有用。
+
+```bash
+npm run build && npm run preview   # 然后打开 http://localhost:4173/e2e-check.html
+```
 
 ### 构建
 

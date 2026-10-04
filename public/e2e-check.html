@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>DeepCW 端到端验证</title></head>
+<body>
+<pre id="out">运行中…</pre>
+<script type="module">
+/**
+ * 真实浏览器端到端验证（第三轮审计专用）
+ *
+ * 与 Node 侧模拟的差异：这里跑的是**真实**的
+ *   dist/assets/deepcwWorker-*.js + onnxruntime-web(WASM) + 真实 15MB 模型
+ * 且音频以「固定长度滚动窗口」的方式连续送入 —— 与生产完全一致。
+ *
+ * 目的：证明 WPM 修复（observeWindow）在真实运行时生效，
+ * 而不只是 esbuild+node 模拟里成立。
+ */
+const out = document.getElementById("out");
+const log = (s) => { out.textContent += "\n" + s; out.scrollTop = 1e9; };
+const FS = 3200;
+
+/** 动态定位构建后的 worker 文件名（其哈希会随构建变化，不能硬编码） */
+async function findWorkerUrl() {
+  const html = await (await fetch("/index.html")).text();
+  // 入口脚本引用可能是 "./assets/..."（相对）或 "/assets/..."（绝对）
+  const entry = html.match(/src="\.?\/?(assets\/index-[A-Za-z0-9_-]+\.js)"/);
+  if (!entry) throw new Error("未找到入口脚本，无法定位 worker");
+  const js = await (await fetch("/" + entry[1])).text();
+  const m = js.match(/deepcwWorker-[A-Za-z0-9_-]+\.js/);
+  if (!m) throw new Error("入口脚本中未找到 deepcwWorker 引用");
+  return "/assets/" + m[0];
+}
+
+const MORSE = { A:".-",B:"-...",C:"-.-.",D:"-..",E:".",F:"..-.",G:"--.",H:"....",I:"..",J:".---",K:"-.-",L:".-..",M:"--",N:"-.",O:"---",P:".--.",Q:"--.-",R:".-.",S:"...",T:"-",U:"..-",V:"...-",W:".--",X:"-..-",Y:"-.--",Z:"--..","0":"-----","1":".----","2":"..---","3":"...--","4":"....-","5":".....","6":"-....","7":"--...","8":"---..","9":"----." };
+
+/** 合成标准 CW（与 cwSynth 一致：charGap 后单词只补 wordGap-charGap） */
+function synth(text, wpm, tone) {
+  const unit = 1.2 / wpm, s = [];
+  for (const ch of text.toUpperCase()) {
+    if (ch === " ") { s.push(...new Array(Math.floor(FS*unit*4)).fill(0)); continue; }
+    const code = MORSE[ch]; if (!code) continue;
+    for (let i = 0; i < code.length; i++) {
+      const n = Math.floor(FS*unit*(code[i]==="-"?3:1));
+      for (let k = 0; k < n; k++) s.push(0.5*Math.sin(2*Math.PI*tone*k/FS));
+      if (i < code.length-1) s.push(...new Array(Math.floor(FS*unit)).fill(0));
+    }
+    s.push(...new Array(Math.floor(FS*unit*3)).fill(0));
+  }
+  return s;
+}
+
+/** 固定长度滚动窗口缓冲（与 useAudioProcessing 行为一致） */
+class RollingBuffer {
+  constructor(sec) { this.buf = new Float32Array(sec*FS); this.len = this.buf.length; this.version = 0; }
+  push(chunk) {
+    const tail = this.buf.subarray(chunk.length);
+    this.buf.set(tail, 0);
+    this.buf.set(chunk, this.len - chunk.length);
+    this.version++;
+  }
+}
+
+let worker;
+let id = 0;
+const pending = new Map();
+const call = (msg, tr) => new Promise((res) => { const rid = ++id; pending.set(rid, res); worker.postMessage({ ...msg, id: rid }, tr || []); });
+
+try {
+  out.textContent = "DeepCW 端到端验证（真实 WASM 推理）\n";
+  const WORKER_URL = await findWorkerUrl();
+  worker = new Worker(WORKER_URL, { type: "module" });
+  worker.onmessage = (e) => { const p = pending.get(e.data.id); if (p) { pending.delete(e.data.id); p(e.data); } };
+  worker.onerror = (e) => log("WORKER ERROR: " + e.message);
+  const t0 = performance.now();
+  const load = await call({ type: "loadModel" });
+  if (load.type === "error") throw new Error(load.error);
+  log(`worker: ${WORKER_URL.split("/").pop()}`);
+  log(`模型加载: ${(performance.now()-t0).toFixed(0)} ms`);
+  log("");
+
+  // 用 20 WPM 连续发报填满 12 秒窗口，然后按 0.64 秒步进持续补新音频
+  const WPM = 20, TONE = 700, WINDOW = 12;
+  const stream = [];
+  for (let i = 0; i < 40; i++) stream.push(...synth("CQ DE BY4CWY K ", WPM, TONE));
+
+  const rb = new RollingBuffer(WINDOW);
+  let offset = 0;
+  // 先灌满窗口
+  rb.push(Float32Array.from(stream.slice(0, WINDOW*FS)));
+  offset = WINDOW*FS;
+
+  const CHUNK = 2048;
+  let lastText = "", wpmHistory = [], inferMs = [];
+  for (let round = 0; round < 12; round++) {
+    if (offset + CHUNK > stream.length) { log("（合成音频已用尽，停止推进）"); break; }
+    rb.push(Float32Array.from(stream.slice(offset, offset+CHUNK)));
+    offset += CHUNK;
+    const audio = rb.buf.slice();               // 与生产相同：传整个窗口
+    const tA = performance.now();
+    const r = await call({ type: "runInference", audioBuffer: audio }, [audio.buffer]);
+    inferMs.push(performance.now()-tA);
+    if (r.type === "error") { log("推理错误: " + r.error); break; }
+    const seg = r.segments[0];
+    if (seg) {
+      lastText = seg.text;
+      if (seg.wpm !== null) wpmHistory.push(seg.wpm);
+    }
+    await new Promise((res) => setTimeout(res, 30));
+  }
+
+  log("解码结果（最后窗口）:");
+  log("  " + JSON.stringify(lastText));
+  log("");
+  log("WPM 观测（真实 WASM 推理输出）:");
+  log("  " + (wpmHistory.length ? wpmHistory.join(" → ") + "  (真实 20 WPM)" : "❌ 全程为 null"));
+  log("");
+  const avg = inferMs.reduce((a,b)=>a+b,0)/Math.max(1,inferMs.length);
+  log(`推理耗时: 平均 ${avg.toFixed(0)} ms（窗口 ${WINDOW}s，RTF=${(avg/1000/WINDOW).toFixed(3)}）`);
+  const verdict = (wpmHistory.length > 0 && Math.abs(wpmHistory.at(-1) - 20) <= 3) ? "PASS" : "FAIL";
+  log("");
+  log(`结论: ${verdict}`);
+  log(JSON.stringify({ verdict, wpmLast: wpmHistory.at(-1) ?? null, text: lastText }));
+  window.__RESULT = { verdict, wpm: wpmHistory.at(-1) ?? null, wpmAll: wpmHistory, text: lastText, avgMs: avg };
+} catch (e) {
+  log("ERROR: " + e.message);
+  window.__RESULT = { verdict: "ERROR", error: e.message };
+}
+</script>
+</body>
+</html>

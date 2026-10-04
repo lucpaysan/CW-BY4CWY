@@ -11,6 +11,7 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    "test": "npm run test:deepcw && npm run test:reseg && npm run test:wpm && npm run test:wpm-rolling && npm run test:wpm-worker && npm run test:arb",
     "test:deepcw": "esbuild src/deepcw/__tests__/selfCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-selfcheck.mjs --log-level=error && node node_modules/.cache/deepcw-selfcheck.mjs",
     "test:reseg": "esbuild src/deepcw/__tests__/resegCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-reseg.mjs --log-level=error && node node_modules/.cache/deepcw-reseg.mjs",
     "test:wpm": "esbuild src/deepcw/__tests__/wpmCheck.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/deepcw-wpm.mjs --log-level=error && node node_modules/.cache/deepcw-wpm.mjs",
